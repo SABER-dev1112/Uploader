@@ -13,6 +13,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
+    <!-- FFmpeg for client-side huge GIF to Video conversion -->
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+
     <style>
         /* ══════════════════════════════════
        RESET & BASE
@@ -1006,12 +1010,33 @@
             });
         }
 
+        /* --- FFmpeg GIF to MP4 Converter --- */
+        let ffmpegInstance = null;
+        async function convertGifToMp4(file) {
+            const { FFmpeg } = window.FFmpeg;
+            const { fetchFile } = window.FFmpegUtil;
+
+            if (!ffmpegInstance) {
+                ffmpegInstance = new FFmpeg();
+                await ffmpegInstance.load({
+                    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+                    wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
+                });
+            }
+
+            await ffmpegInstance.writeFile('input.gif', await fetchFile(file));
+            await ffmpegInstance.exec(['-i', 'input.gif', '-movflags', 'faststart', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', 'output.mp4']);
+            const data = await ffmpegInstance.readFile('output.mp4');
+
+            return new File([data.buffer], file.name.replace(/\.gif$/i, '.mp4'), { type: 'video/mp4' });
+        }
+
         /* ─── Upload ─── */
         async function uploadFile(file) {
             const id = 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-            const type = getFileType(file);
-            const isImg = type === 'image';
-            const isGif = file.type === 'image/gif';
+            let type = getFileType(file);
+            let isImg = type === 'image';
+            let isGif = file.type === 'image/gif';
             const originalSize = file.size;
 
             // --- فصل الحجم الأقصى للرفع عن حجم أداة الضغط ---
@@ -1040,6 +1065,32 @@
                     </div>`;
                 document.getElementById('results').prepend(stEl);
                 file = await compressImage(file, COMPRESS_TARGET);
+                stEl.remove();
+            }
+
+            // Convert Huge GIFs to MP4 natively using FFmpeg
+            if (isGif && file.size > 10 * 1024 * 1024) {
+                const stEl = document.createElement('div');
+                stEl.className = 'compress-overlay';
+                stEl.innerHTML = `
+                    <div class="compress-spinner"></div>
+                    <div class="compress-overlay-text">
+                        <div class="compress-overlay-title">
+                            🎞️ جاري تحويل الـ GIF لفيديو…
+                        </div>
+                        <div class="compress-overlay-sub">
+                            يتم المعالجة لكي يقبل السيرفر الملفات الضخمة
+                        </div>
+                    </div>`;
+                document.getElementById('results').prepend(stEl);
+                try {
+                    file = await convertGifToMp4(file);
+                    type = 'video';
+                    isImg = false;
+                    isGif = false;
+                } catch (e) {
+                    console.error("FFmpeg conversion failed", e);
+                }
                 stEl.remove();
             }
 
