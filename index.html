@@ -1091,7 +1091,17 @@
 
             // Cloudinary requires 'auto' for most files to auto-detect, or 'video' for native video types.
             // Using 'video' for a .gif file throws "Unsupported file type".
-            let resourceType = 'auto';
+            // However, Cloudinary has an 'image' and 'video' and 'raw' endpoint. 'auto' works on the 'auto' endpoint.
+
+            let resourceType = 'auto'; // used in the URL: /v1_1/cloudname/{resourceType}/upload
+
+            if (type === 'video') {
+                resourceType = 'video';
+            } else if (file.size > 10 * 1024 * 1024) { // over 10 MB limit for images?
+                resourceType = 'video'; // Cloudinary allows large animated gifs as videos
+            } else {
+                resourceType = 'image';
+            }
 
             xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`);
 
