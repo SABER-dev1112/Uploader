@@ -1011,30 +1011,40 @@
         }
 
         /* ─── Compress GIF (preserving animation) ─── */
-        function compressGif(file, maxBytes) {
-            return new Promise(async (resolve) => {
-                if (file.size <= maxBytes) { resolve(file); return; }
-                try {
-                    const bytes = new Uint8Array(await file.arrayBuffer());
-                    const gr = new GifReader(bytes);
-                    const srcW = gr.width, srcH = gr.height;
-                    const numFrames = gr.numFrames();
+        async function compressGif(file, maxBytes) {
+            if (file.size <= maxBytes) return file;
 
-                    // Scale down long side to max 800px for better compression
-                    const MAX_DIM = 800;
-                    const scale = Math.min(1, MAX_DIM / Math.max(srcW, srcH));
-                    const dstW = Math.round(srcW * scale);
-                    const dstH = Math.round(srcH * scale);
+            // Verify GifReader is available
+            const GifReaderCls = window.GifReader;
+            if (typeof GifReaderCls !== 'function') {
+                console.error('GifReader not available. omggif may not have loaded correctly.');
+                return file;
+            }
 
+            try {
+                const bytes = new Uint8Array(await file.arrayBuffer());
+                const gr = new GifReaderCls(bytes);
+                const srcW = gr.width, srcH = gr.height;
+                const numFrames = gr.numFrames();
+
+                // Scale down long side to max 800px
+                const MAX_DIM = 800;
+                const scale = Math.min(1, MAX_DIM / Math.max(srcW, srcH));
+                const dstW = Math.round(srcW * scale);
+                const dstH = Math.round(srcH * scale);
+
+                const workerUrl = await getGifWorkerUrl();
+
+                // decode + encode in a promise with timeout & error handler
+                const blob = await new Promise((res, rej) => {
                     const gif = new GIF({
                         workers: 2,
-                        quality: 20,     // 1=best quality, 20=most compression
+                        quality: 20,
                         width: dstW,
                         height: dstH,
-                        workerScript: await getGifWorkerUrl(),
+                        workerScript: workerUrl,
                     });
 
-                    // decode each frame → draw scaled → add to encoder
                     const srcCanvas = document.createElement('canvas');
                     srcCanvas.width = srcW; srcCanvas.height = srcH;
                     const srcCtx = srcCanvas.getContext('2d');
@@ -1044,7 +1054,6 @@
                     const dstCtx = dstCanvas.getContext('2d');
 
                     const pixBuf = new Uint8ClampedArray(srcW * srcH * 4);
-
                     for (let i = 0; i < numFrames; i++) {
                         const info = gr.frameInfo(i);
                         gr.decodeAndBlitFrameRGBA(i, pixBuf);
@@ -1054,20 +1063,22 @@
                         gif.addFrame(dstCtx, { copy: true, delay: (info.delay || 10) * 10 });
                     }
 
-                    gif.on('finished', blob => {
-                        if (blob.size < file.size) {
-                            resolve(new File([blob], file.name, { type: 'image/gif', lastModified: Date.now() }));
-                        } else {
-                            resolve(file); // original already smaller
-                        }
-                    });
+                    // 60s timeout guard
+                    const timer = setTimeout(() => rej(new Error('gif.js render timeout')), 60000);
 
+                    gif.on('finished', b => { clearTimeout(timer); res(b); });
+                    gif.on('error', e => { clearTimeout(timer); rej(e); });
                     gif.render();
-                } catch (e) {
-                    console.warn('GIF compress error:', e);
-                    resolve(file); // fallback: upload original
-                }
-            });
+                });
+
+                return blob.size < file.size
+                    ? new File([blob], file.name, { type: 'image/gif', lastModified: Date.now() })
+                    : file;
+
+            } catch (e) {
+                console.error('GIF compress error:', e);
+                return file; // fallback: upload original
+            }
         }
 
         /* ─── Compress image using Canvas ─── */
@@ -1129,8 +1140,17 @@
             // Compress when respective toggle is on
             if ((doCompress && canCompress) || (doCompressGif && isGif)) {
                 const stEl = document.createElement('div');
-                stEl.textContent = isGif ? '🎞️ جاري ضغط GIF مع حفظ الأنيميشن…' : '🗜️ جاري ضغط الصورة…';
-                stEl.style.cssText = 'font-size:.8rem;color:var(--muted);text-align:center;padding:6px 0';
+                stEl.className = 'compress-overlay';
+                stEl.innerHTML = `
+                    <div class="compress-spinner"></div>
+                    <div class="compress-overlay-text">
+                        <div class="compress-overlay-title">
+                            ${isGif ? '🎞️ جاري ضغط الـ GIF…' : '🗜️ جاري ضغط الصورة…'}
+                        </div>
+                        <div class="compress-overlay-sub">
+                            ${isGif ? 'يتم حفظ الأنيميشن — قد يستغرق لحظة' : 'يتم تقليل الحجم للحفاظ على الجودة'}
+                        </div>
+                    </div>`;
                 document.getElementById('results').prepend(stEl);
                 file = isGif
                     ? await compressGif(file, MAX_BYTES)
