@@ -13,20 +13,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
-    <script>
-        // Simple shim to make omggif work in browser without full CommmonJS
-        window.module = { exports: {} };
-        window.exports = window.module.exports;
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
-    <script>
-        // Extract GifReader and clean up to avoid confusing other libs like gif.js
-        window.GifReader = window.module.exports.GifReader || window.GifReader;
-        delete window.module;
-        delete window.exports;
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
-
     <style>
         /* ══════════════════════════════════
        RESET & BASE
@@ -831,20 +817,6 @@
             </div>
         </div>
 
-        <div class="compress-bar glass">
-            <div class="compress-label">
-                🎞️ ضغط GIF مع حفظ الأنيميشن
-                <span class="hint">يستغرق وقتاً أطول</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px">
-                <span class="toggle-state-label on" id="gifToggleLabel">مفعّل</span>
-                <label class="toggle-wrap">
-                    <input type="checkbox" id="gifCompressToggle" checked onchange="updateGifToggleLabel(this)" />
-                    <span class="toggle-track"></span>
-                </label>
-            </div>
-        </div>
-
         <div id="uploadBar" class="glass">
             <div class="upload-info">
                 جاهز للرفع: <strong id="pendingCount">0</strong> ملف
@@ -902,12 +874,6 @@
 
         function updateToggleLabel(cb) {
             const lbl = document.getElementById('toggleLabel');
-            lbl.textContent = cb.checked ? 'مفعّل' : 'معطّل';
-            lbl.className = 'toggle-state-label ' + (cb.checked ? 'on' : 'off');
-        }
-
-        function updateGifToggleLabel(cb) {
-            const lbl = document.getElementById('gifToggleLabel');
             lbl.textContent = cb.checked ? 'مفعّل' : 'معطّل';
             lbl.className = 'toggle-state-label ' + (cb.checked ? 'on' : 'off');
         }
@@ -993,99 +959,6 @@
             btn.innerHTML = '⚡ ارفع الآن <span class="upload-badge" id="uploadBadge">0</span>';
         }
 
-        /* ─── Load gif.js worker as Blob URL (bypasses CSP on GitHub Pages) ─── */
-        let _gifWorkerUrl = null;
-        async function getGifWorkerUrl() {
-            if (_gifWorkerUrl) return _gifWorkerUrl;
-            try {
-                const res = await fetch('https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js');
-                if (!res.ok) throw new Error('Worker fetch failed');
-                const text = await res.text();
-                _gifWorkerUrl = URL.createObjectURL(new Blob([text], { type: 'application/javascript' }));
-            } catch (e) {
-                console.warn('Fallback to direct worker URL:', e);
-                _gifWorkerUrl = 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js';
-            }
-            return _gifWorkerUrl;
-        }
-
-        /* ─── Compress GIF (preserving animation) ─── */
-        async function compressGif(file, maxBytes) {
-            if (file.size <= maxBytes) return file;
-
-            // Verify Libraries are available
-            const GifReaderCls = window.GifReader;
-            const GifCls = window.GIF;
-            if (typeof GifReaderCls !== 'function' || typeof GifCls !== 'function') {
-                console.error('GIF libraries not available (GifReader or GIF missing).');
-                return file;
-            }
-
-            try {
-                const bytes = new Uint8Array(await file.arrayBuffer());
-                const gr = new GifReaderCls(bytes);
-                const srcW = gr.width, srcH = gr.height;
-                const numFrames = gr.numFrames();
-
-                // Aggressive adaptive scaling:
-                // If file is > 15MB, target 500px. If > 25MB, target 400px.
-                let MAX_DIM = 800;
-                if (file.size > 25 * 1024 * 1024) MAX_DIM = 400;
-                else if (file.size > 15 * 1024 * 1024) MAX_DIM = 600;
-                else if (file.size > 12 * 1024 * 1024) MAX_DIM = 700;
-
-                const scale = Math.min(1, MAX_DIM / Math.max(srcW, srcH));
-                const dstW = Math.round(srcW * scale);
-                const dstH = Math.round(srcH * scale);
-
-                const workerUrl = await getGifWorkerUrl();
-
-                // decode + encode in a promise with timeout & error handler
-                const blob = await new Promise((res, rej) => {
-                    const gif = new GifCls({
-                        workers: 2,
-                        quality: file.size > 15 * 1024 * 1024 ? 30 : 20, // Higher value means more aggressive compression
-                        width: dstW,
-                        height: dstH,
-                        workerScript: workerUrl,
-                    });
-
-                    const srcCanvas = document.createElement('canvas');
-                    srcCanvas.width = srcW; srcCanvas.height = srcH;
-                    const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
-
-                    const dstCanvas = document.createElement('canvas');
-                    dstCanvas.width = dstW; dstCanvas.height = dstH;
-                    const dstCtx = dstCanvas.getContext('2d', { willReadFrequently: true });
-
-                    const pixBuf = new Uint8ClampedArray(srcW * srcH * 4);
-                    for (let i = 0; i < numFrames; i++) {
-                        const info = gr.frameInfo(i);
-                        gr.decodeAndBlitFrameRGBA(i, pixBuf);
-                        srcCtx.putImageData(new ImageData(pixBuf.slice(), srcW, srcH), 0, 0);
-                        dstCtx.clearRect(0, 0, dstW, dstH);
-                        dstCtx.drawImage(srcCanvas, 0, 0, dstW, dstH);
-                        gif.addFrame(dstCtx, { copy: true, delay: (info.delay || 10) * 10 });
-                    }
-
-                    // 60s timeout guard
-                    const timer = setTimeout(() => rej(new Error('gif.js render timeout')), 60000);
-
-                    gif.on('finished', b => { clearTimeout(timer); res(b); });
-                    gif.on('error', e => { clearTimeout(timer); rej(e); });
-                    gif.render();
-                });
-
-                return blob.size < file.size
-                    ? new File([blob], file.name, { type: 'image/gif', lastModified: Date.now() })
-                    : file;
-
-            } catch (e) {
-                console.error('GIF compress error:', e);
-                return file; // fallback: upload original
-            }
-        }
-
         /* ─── Compress image using Canvas ─── */
         function compressImage(file, maxBytes) {
             return new Promise(resolve => {
@@ -1147,29 +1020,26 @@
             const UPLOAD_LIMIT = (type === 'video' || isGif) ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
 
             const doCompress = document.getElementById('compressToggle').checked;
-            const doCompressGif = document.getElementById('gifCompressToggle').checked;
             // SVG=vector (skip), WebP=Canvas result often bigger (skip)
             const SKIP_TYPES = ['image/svg+xml', 'image/webp'];
             const canCompress = isImg && !SKIP_TYPES.includes(file.type) && !isGif;
 
             // Compress when respective toggle is on
-            if ((doCompress && canCompress) || (doCompressGif && isGif)) {
+            if (doCompress && canCompress) {
                 const stEl = document.createElement('div');
                 stEl.className = 'compress-overlay';
                 stEl.innerHTML = `
                     <div class="compress-spinner"></div>
                     <div class="compress-overlay-text">
                         <div class="compress-overlay-title">
-                            ${isGif ? '🎞️ جاري ضغط الـ GIF…' : '🗜️ جاري ضغط الصورة…'}
+                            🗜️ جاري ضغط الصورة…
                         </div>
                         <div class="compress-overlay-sub">
-                            ${isGif ? 'يتم حفظ الأنيميشن — قد يستغرق لحظة' : 'يتم تقليل الحجم للحفاظ على الجودة'}
+                            يتم تقليل الحجم للحفاظ على الجودة
                         </div>
                     </div>`;
                 document.getElementById('results').prepend(stEl);
-                file = isGif
-                    ? await compressGif(file, COMPRESS_TARGET)
-                    : await compressImage(file, COMPRESS_TARGET);
+                file = await compressImage(file, COMPRESS_TARGET);
                 stEl.remove();
             }
 
