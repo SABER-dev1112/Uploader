@@ -914,15 +914,15 @@
                     const srcW = gr.width, srcH = gr.height;
                     const numFrames = gr.numFrames();
 
-                    // Scale down long side to max 1000px
-                    const MAX_DIM = 1000;
+                    // Scale down long side to max 800px for better compression
+                    const MAX_DIM = 800;
                     const scale = Math.min(1, MAX_DIM / Math.max(srcW, srcH));
                     const dstW = Math.round(srcW * scale);
                     const dstH = Math.round(srcH * scale);
 
                     const gif = new GIF({
-                        workers: 2,
-                        quality: 15,   // 1=best quality, 20=most compression
+                        workers: 0,      // 0 = main thread, avoids CORS issue on local files
+                        quality: 20,     // 1=best quality, 20=most compression
                         width: dstW,
                         height: dstH,
                         workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js',
