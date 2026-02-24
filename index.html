@@ -13,8 +13,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
-    <!-- COI Service Worker to enable SharedArrayBuffer on GitHub Pages -->
+    <!-- COI Service Worker to enable SharedArrayBuffer -->
     <script src="coi-serviceworker.js"></script>
+
+
 
     <!-- FFmpeg for client-side huge GIF to Video conversion -->
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
@@ -843,7 +845,7 @@
     <footer>
         <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
         <span class="footer-credit">Developed by Mahmoud Walid</span>
-        <span class="footer-version">V 1.9</span>
+        <span class="footer-version">V 2.1</span>
     </footer>
 
     <script>
@@ -1016,16 +1018,18 @@
         /* --- FFmpeg GIF to MP4 Converter --- */
         let ffmpegInstance = null;
         async function convertGifToMp4(file) {
-            const { FFmpeg } = window.FFmpeg;
-            const { fetchFile } = window.FFmpegUtil;
+            const { FFmpeg } = window.FFmpegWASM;
+            const { fetchFile, toBlobURL } = window.FFmpegUtil;
 
             if (!ffmpegInstance) {
                 ffmpegInstance = new FFmpeg();
                 await ffmpegInstance.load({
-                    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-                    wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
+                    coreURL: new URL('/ffmpeg-core.js', location.origin).href,
+                    wasmURL: new URL('/ffmpeg-core.wasm', location.origin).href,
+                    classWorkerURL: new URL('/814.ffmpeg.js', location.origin).href,
                 });
             }
+
 
             await ffmpegInstance.writeFile('input.gif', await fetchFile(file));
             await ffmpegInstance.exec(['-i', 'input.gif', '-movflags', 'faststart', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', 'output.mp4']);
