@@ -13,14 +13,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
-    <!-- COI Service Worker to enable SharedArrayBuffer -->
-    <script src="coi-serviceworker.js"></script>
 
 
 
-    <!-- FFmpeg for client-side huge GIF to Video conversion -->
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+
 
     <style>
         /* ══════════════════════════════════
@@ -1015,28 +1011,6 @@
             });
         }
 
-        /* --- FFmpeg GIF to MP4 Converter --- */
-        let ffmpegInstance = null;
-        async function convertGifToMp4(file) {
-            const { FFmpeg } = window.FFmpegWASM;
-            const { fetchFile, toBlobURL } = window.FFmpegUtil;
-
-            if (!ffmpegInstance) {
-                ffmpegInstance = new FFmpeg();
-                await ffmpegInstance.load({
-                    coreURL: new URL('/ffmpeg-core.js', location.origin).href,
-                    wasmURL: new URL('/ffmpeg-core.wasm', location.origin).href,
-                    classWorkerURL: new URL('/814.ffmpeg.js', location.origin).href,
-                });
-            }
-
-
-            await ffmpegInstance.writeFile('input.gif', await fetchFile(file));
-            await ffmpegInstance.exec(['-i', 'input.gif', '-movflags', 'faststart', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', 'output.mp4']);
-            const data = await ffmpegInstance.readFile('output.mp4');
-
-            return new File([data.buffer], file.name.replace(/\.gif$/i, '.mp4'), { type: 'video/mp4' });
-        }
 
         /* ─── Upload ─── */
         async function uploadFile(file) {
@@ -1075,30 +1049,11 @@
                 stEl.remove();
             }
 
-            // Convert Huge GIFs to MP4 natively using FFmpeg
+            // For large GIFs (>10MB): upload directly as video resource on Cloudinary
+            // Cloudinary's /video/upload accepts GIFs natively with no size conversion needed
+            let uploadEndpoint = 'auto';
             if (isGif && file.size > 10 * 1024 * 1024) {
-                const stEl = document.createElement('div');
-                stEl.className = 'compress-overlay';
-                stEl.innerHTML = `
-                    <div class="compress-spinner"></div>
-                    <div class="compress-overlay-text">
-                        <div class="compress-overlay-title">
-                            🎞️ جاري تحويل الـ GIF لفيديو…
-                        </div>
-                        <div class="compress-overlay-sub">
-                            يتم المعالجة لكي يقبل السيرفر الملفات الضخمة
-                        </div>
-                    </div>`;
-                document.getElementById('results').prepend(stEl);
-                try {
-                    file = await convertGifToMp4(file);
-                    type = 'video';
-                    isImg = false;
-                    isGif = false;
-                } catch (e) {
-                    console.error("FFmpeg conversion failed", e);
-                }
-                stEl.remove();
+                uploadEndpoint = 'video';
             }
 
             const thumbHTML = isImg
@@ -1147,10 +1102,9 @@
 
             const xhr = new XMLHttpRequest();
 
-            // Cloudinary has an 'auto' endpoint that automatically decides
-            // whether to treat the file as an image or a video.
-            // This natively supports huge GIFs (since we converted them to MP4).
-            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`);
+            // Cloudinary's uploadEndpoint is dynamically set to 'video' for large GIFs
+            // This naturally supports huge GIFs natively without any conversion
+            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${uploadEndpoint}/upload`);
 
             xhr.upload.onprogress = e => {
                 if (e.lengthComputable) {
