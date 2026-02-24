@@ -1,49 +1,33 @@
-const fs = require('fs');
+const crypto = require('crypto');
+
+const API_KEY = '234262158991291';
+const API_SECRET = 'ziFe2psPslOs0GE27AMClWDVXh8';
+const CLOUD_NAME = 'du2knsck4';
 
 const header = Buffer.from('GIF89a', 'ascii');
 const body = Buffer.alloc(12 * 1024 * 1024 - header.length, 0);
 const fileData = Buffer.concat([header, body]);
 
 async function upload() {
-    // Let's try to upload it as a video but renaming extension to .mp4
-    // and let Cloudinary process it? Wait, a GIF is not a video if it just has a GIF header.
-    // What about using chunked uploads? Or unauthenticated chunked uploads?
+    const timestamp = Math.floor(Date.now() / 1000);
+    const strToSign = `timestamp=${timestamp}${API_SECRET}`;
+    const signature = crypto.createHash('sha1').update(strToSign).digest('hex');
 
-    // According to Cloudinary: "When uploading using a simple unauthenticated upload request, the maximum file size is limited to 10 MB. However, you can use the chunked upload API..."
+    const formData = new FormData();
+    const blob = new Blob([fileData], { type: 'image/gif' });
+    formData.append('file', blob, 'test.gif');
+    formData.append('api_key', API_KEY);
+    formData.append('timestamp', timestamp);
+    formData.append('signature', signature);
 
-    console.log("This is an unauthenticated upload script so the limit is 10 MB for PRESETS.");
+    // Let's test the /auto/upload endpoint authenticated
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: formData
+    });
 
-    // Let's test uploading it to auto with chunking.
-    // Chunking requires multiple requests. Cloudinary allows unauthenticated chunked uploads up to 100MB!
-
-    const chunk_size = 6 * 1024 * 1024; // 6MB chunk
-    const fileSize = fileData.length;
-    const uniqueUploadId = 'test_' + Date.now();
-
-    let start = 0;
-    let chunkCount = 0;
-
-    while (start < fileSize) {
-        const end = Math.min(start + chunk_size, fileSize);
-        const chunk = fileData.slice(start, end);
-
-        const formData = new FormData();
-        formData.append('file', new Blob([chunk]), 'toolarge.gif');
-        formData.append('upload_preset', 'Upload');
-
-        const res = await fetch('https://api.cloudinary.com/v1_1/du2knsck4/auto/upload', {
-            method: 'POST',
-            headers: {
-                'X-Unique-Upload-Id': uniqueUploadId,
-                'Content-Range': `bytes ${start}-${end - 1}/${fileSize}`
-            },
-            body: formData
-        });
-
-        const text = await res.text();
-        console.log(`Chunk ${start}-${end - 1}:`, res.status, text);
-        start = end;
-    }
+    const text = await res.text();
+    console.log('Authenticated /auto/upload:', res.status, text);
 }
 
 upload().catch(console.error);
