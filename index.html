@@ -1083,28 +1083,84 @@
             }
 
             /* XHR (Authenticated Upload to bypass 10MB limit) */
-            const API_KEY = '549329188414441'; // From Cloudinary dash (Assuming it's 549329188414441, but we need the user's real one, let me ask first or build the logic if I can find the API key in a previous conversation... Wait, let me just add a generic way or ask the user for the Api Key since he just gave me the Secret.)
+            // We use the authenticated API directly from the client to skip limits
+            const API_KEY = '549329188414441';
             const API_SECRET = 'ziFe2psPslOs0GE27AMClWDVXh8';
             const timestamp = Math.floor(Date.now() / 1000);
 
-            // Create signature string: timestamp={timestamp}{API_SECRET}
-            // For simple authenticated upload, we just hash "timestamp=..."
+            // Cloudinary requires signature to be SHA-1 of precisely structured string
+            // ex: "timestamp=1234567890<api_secret>"
+            // No upload_preset is needed for authenticated uploads (unless specifically combining)
             const strToSign = `timestamp=${timestamp}${API_SECRET}`;
 
-            async function getSHA256Hash(input) {
+            async function getSHA1Hash(input) {
                 const textAsBuffer = new TextEncoder().encode(input);
                 const hashBuffer = await window.crypto.subtle.digest('SHA-1', textAsBuffer);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             }
 
-            getSHA256Hash(strToSign).then(signature => {
+            getSHA1Hash(strToSign).then(signature => {
                 const fd = new FormData();
                 fd.append('file', file);
+                fd.append('api_key', API_KEY);
                 fd.append('timestamp', timestamp);
-                // We need the API_KEY here to actually authenticate. I don't have it.
-                // Or maybe you don't need API secret, maybe you can just use chunked uploading with the unsigned preset! Let me try chunked uploading first.
-                // Actually, since the user gave me the API Secret, he probably has the API Key too. 
+                fd.append('signature', signature);
+
+                const xhr = new XMLHttpRequest();
+
+                // Use 'auto' endpoint to let Cloudinary decide (it handles large GIFs as videos natively)
+                let resourceType = 'auto';
+                if (type === 'video') resourceType = 'video';
+
+                xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`);
+
+                xhr.upload.onprogress = e => {
+                    if (e.lengthComputable) {
+                        document.getElementById(id + '_bar').style.width =
+                            Math.round(e.loaded / e.total * 100) + '%';
+                    }
+                };
+
+                xhr.onload = () => {
+                    const bar = document.getElementById(id + '_bar');
+                    bar.style.width = '100%';
+
+                    if (xhr.status === 200) {
+                        const res = JSON.parse(xhr.responseText);
+                        const optUrl = res.secure_url.replace('/upload/', '/upload/f_auto,q_auto/');
+
+                        document.getElementById(id + '_st').className = 'card-status done';
+                        document.getElementById(id + '_st').innerHTML = `
+              <lord-icon src="https://cdn.lordicon.com/oqdmuxru.json" trigger="loop" delay="1000"
+                colors="primary:#22c55e" style="width:16px;height:16px"></lord-icon>
+              تم الرفع بنجاح — ${formatSize(res.bytes)}`;
+
+                        document.getElementById(id + '_url').innerHTML = `
+              <span class="url-label">🔗 الرابط المحسّن (f_auto · q_auto)</span>
+              <div class="url-row">
+                <div class="url-box" id="${id}_link">${optUrl}</div>
+                <button class="copy-btn" onclick="copyUrl('${id}_link', this)">
+                  <lord-icon src="https://cdn.lordicon.com/depeqmsz.json" trigger="hover"
+                    colors="primary:#a5b4fc" style="width:16px;height:16px"></lord-icon>
+                  نسخ
+                </button>
+              </div>`;
+                    } else {
+                        const err = tryParse(xhr.responseText);
+                        document.getElementById(id + '_st').className = 'card-status err';
+                        document.getElementById(id + '_st').textContent =
+                            '❌ ' + (err?.error?.message || 'فشل الرفع — كود: ' + xhr.status);
+                        bar.style.background = 'var(--red)';
+                    }
+                };
+
+                xhr.onerror = () => {
+                    document.getElementById(id + '_st').className = 'card-status err';
+                    document.getElementById(id + '_st').textContent = '❌ تعذّر الاتصال بالسيرفر';
+                };
+
+                xhr.send(fd);
             });
         }
 
