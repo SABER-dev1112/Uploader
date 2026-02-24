@@ -693,6 +693,89 @@
             height: 1px;
             background: linear-gradient(90deg, #818cf8, transparent);
         }
+
+        /* ── Version badge ── */
+        .footer-version {
+            display: block;
+            font-size: .68rem;
+            color: var(--muted);
+            margin-top: 6px;
+            letter-spacing: .08em;
+        }
+
+        /* ── Compression overlay card ── */
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                box-shadow: 0 0 0 0 rgba(129, 140, 248, .5);
+            }
+
+            70% {
+                box-shadow: 0 0 0 12px rgba(129, 140, 248, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(129, 140, 248, 0);
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -400px 0;
+            }
+
+            100% {
+                background-position: 400px 0;
+            }
+        }
+
+        .compress-overlay {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(99, 102, 241, .08);
+            border: 1px solid rgba(129, 140, 248, .25);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 12px;
+            animation: shimmer 1.8s linear infinite;
+            background-size: 800px 100%;
+            background-image: linear-gradient(90deg,
+                    rgba(99, 102, 241, .06) 0%,
+                    rgba(129, 140, 248, .15) 40%,
+                    rgba(99, 102, 241, .06) 80%);
+        }
+
+        .compress-spinner {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            border: 3px solid rgba(129, 140, 248, .2);
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: spin .8s linear infinite, pulse-ring 1.4s ease-out infinite;
+        }
+
+        .compress-overlay-text {
+            flex: 1;
+        }
+
+        .compress-overlay-title {
+            font-size: .88rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 3px;
+        }
+
+        .compress-overlay-sub {
+            font-size: .74rem;
+            color: var(--muted);
+        }
     </style>
 </head>
 
@@ -779,6 +862,7 @@
     <footer>
         <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
         <span class="footer-credit">Developed by Mahmoud Walid</span>
+        <span class="footer-version">V 1.0</span>
     </footer>
 
     <!-- ══════════════════════════════════
