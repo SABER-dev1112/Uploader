@@ -840,7 +840,7 @@
     <footer>
         <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
         <span class="footer-credit">Developed by Mahmoud Walid</span>
-        <span class="footer-version">V 1.7</span>
+        <span class="footer-version">V 1.8</span>
     </footer>
 
     <script>
@@ -1133,86 +1133,64 @@
                 return;
             }
 
-            /* XHR (Authenticated Upload to bypass 10MB limit) */
-            // We use the authenticated API directly from the client to skip limits
-            const API_KEY = '549329188414441';
-            const API_SECRET = 'ziFe2psPslOs0GE27AMClWDVXh8';
-            const timestamp = Math.floor(Date.now() / 1000);
+            /* XHR */
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('upload_preset', UPLOAD_PRESET);
 
-            // Cloudinary requires signature to be SHA-1 of precisely structured string
-            // ex: "timestamp=1234567890<api_secret>"
-            // No upload_preset is needed for authenticated uploads (unless specifically combining)
-            const strToSign = `timestamp=${timestamp}${API_SECRET}`;
+            const xhr = new XMLHttpRequest();
 
-            async function getSHA1Hash(input) {
-                const textAsBuffer = new TextEncoder().encode(input);
-                const hashBuffer = await window.crypto.subtle.digest('SHA-1', textAsBuffer);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            }
+            // Cloudinary has an 'auto' endpoint that automatically decides
+            // whether to treat the file as an image or a video.
+            // This natively supports huge GIFs (since we converted them to MP4).
+            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`);
 
-            getSHA1Hash(strToSign).then(signature => {
-                const fd = new FormData();
-                fd.append('file', file);
-                fd.append('api_key', API_KEY);
-                fd.append('timestamp', timestamp);
-                fd.append('signature', signature);
+            xhr.upload.onprogress = e => {
+                if (e.lengthComputable) {
+                    document.getElementById(id + '_bar').style.width =
+                        Math.round(e.loaded / e.total * 100) + '%';
+                }
+            };
 
-                const xhr = new XMLHttpRequest();
+            xhr.onload = () => {
+                const bar = document.getElementById(id + '_bar');
+                bar.style.width = '100%';
 
-                // Use 'auto' endpoint to let Cloudinary decide (it handles large GIFs as videos natively)
-                let resourceType = 'auto';
-                if (type === 'video') resourceType = 'video';
+                if (xhr.status === 200) {
+                    const res = JSON.parse(xhr.responseText);
+                    const optUrl = res.secure_url.replace('/upload/', '/upload/f_auto,q_auto/');
 
-                xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`);
+                    document.getElementById(id + '_st').className = 'card-status done';
+                    document.getElementById(id + '_st').innerHTML = `
+          <lord-icon src="https://cdn.lordicon.com/oqdmuxru.json" trigger="loop" delay="1000"
+            colors="primary:#22c55e" style="width:16px;height:16px"></lord-icon>
+          تم الرفع بنجاح — ${formatSize(res.bytes)}`;
 
-                xhr.upload.onprogress = e => {
-                    if (e.lengthComputable) {
-                        document.getElementById(id + '_bar').style.width =
-                            Math.round(e.loaded / e.total * 100) + '%';
-                    }
-                };
-
-                xhr.onload = () => {
-                    const bar = document.getElementById(id + '_bar');
-                    bar.style.width = '100%';
-
-                    if (xhr.status === 200) {
-                        const res = JSON.parse(xhr.responseText);
-                        const optUrl = res.secure_url.replace('/upload/', '/upload/f_auto,q_auto/');
-
-                        document.getElementById(id + '_st').className = 'card-status done';
-                        document.getElementById(id + '_st').innerHTML = `
-              <lord-icon src="https://cdn.lordicon.com/oqdmuxru.json" trigger="loop" delay="1000"
-                colors="primary:#22c55e" style="width:16px;height:16px"></lord-icon>
-              تم الرفع بنجاح — ${formatSize(res.bytes)}`;
-
-                        document.getElementById(id + '_url').innerHTML = `
-              <span class="url-label">🔗 الرابط المحسّن (f_auto · q_auto)</span>
-              <div class="url-row">
-                <div class="url-box" id="${id}_link">${optUrl}</div>
-                <button class="copy-btn" onclick="copyUrl('${id}_link', this)">
-                  <lord-icon src="https://cdn.lordicon.com/depeqmsz.json" trigger="hover"
-                    colors="primary:#a5b4fc" style="width:16px;height:16px"></lord-icon>
-                  نسخ
-                </button>
-              </div>`;
-                    } else {
-                        const err = tryParse(xhr.responseText);
-                        document.getElementById(id + '_st').className = 'card-status err';
-                        document.getElementById(id + '_st').textContent =
-                            '❌ ' + (err?.error?.message || 'فشل الرفع — كود: ' + xhr.status);
-                        bar.style.background = 'var(--red)';
-                    }
-                };
-
-                xhr.onerror = () => {
+                    document.getElementById(id + '_url').innerHTML = `
+          <span class="url-label">🔗 الرابط المحسّن (f_auto · q_auto)</span>
+          <div class="url-row">
+            <div class="url-box" id="${id}_link">${optUrl}</div>
+            <button class="copy-btn" onclick="copyUrl('${id}_link', this)">
+              <lord-icon src="https://cdn.lordicon.com/depeqmsz.json" trigger="hover"
+                colors="primary:#a5b4fc" style="width:16px;height:16px"></lord-icon>
+              نسخ
+            </button>
+          </div>`;
+                } else {
+                    const err = tryParse(xhr.responseText);
                     document.getElementById(id + '_st').className = 'card-status err';
-                    document.getElementById(id + '_st').textContent = '❌ تعذّر الاتصال بالسيرفر';
-                };
+                    document.getElementById(id + '_st').textContent =
+                        '❌ ' + (err?.error?.message || 'فشل الرفع — كود: ' + xhr.status);
+                    bar.style.background = 'var(--red)';
+                }
+            };
 
-                xhr.send(fd);
-            });
+            xhr.onerror = () => {
+                document.getElementById(id + '_st').className = 'card-status err';
+                document.getElementById(id + '_st').textContent = '❌ تعذّر الاتصال بالسيرفر';
+            };
+
+            xhr.send(fd);
         }
 
         /* ─── Helpers ─── */
