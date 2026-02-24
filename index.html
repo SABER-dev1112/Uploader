@@ -16,6 +16,10 @@
     <!-- Typed.js -->
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
+    <!-- GIF compression libs -->
+    <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+
     <style>
         /* ══════════════════════════════════
        RESET & BASE
@@ -409,6 +413,12 @@
             letter-spacing: .04em;
         }
 
+        .badge.gif {
+            background: rgba(34, 197, 94, .15);
+            color: #86efac;
+            border-color: rgba(34, 197, 94, .3);
+        }
+
         .badge.video {
             background: rgba(236, 72, 153, .15);
             color: #f9a8d4;
@@ -446,15 +456,234 @@
         }
 
         /* ══════════════════════════════════
+       COMPRESS TOGGLE
+    ══════════════════════════════════ */
+        .compress-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+        }
+
+        .compress-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: .9rem;
+            font-weight: 700;
+        }
+
+        .compress-label span.hint {
+            font-size: .75rem;
+            font-weight: 400;
+            color: var(--muted);
+        }
+
+        /* Toggle switch */
+        .toggle-wrap {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle-wrap input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .toggle-track {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, .1);
+            border-radius: 99px;
+            border: 1px solid var(--glass-border);
+            cursor: pointer;
+            transition: background .35s, border-color .35s, box-shadow .35s;
+        }
+
+        .toggle-track::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            background: #64748b;
+            border-radius: 50%;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+            transition: transform .35s cubic-bezier(.34, 1.56, .64, 1), background .35s;
+        }
+
+        .toggle-wrap input:checked+.toggle-track {
+            background: rgba(99, 102, 241, .35);
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(99, 102, 241, .5);
+        }
+
+        .toggle-wrap input:checked+.toggle-track::after {
+            transform: translateX(22px);
+            background: var(--accent);
+        }
+
+        /* on/off text label */
+        .toggle-state-label {
+            font-size: .72rem;
+            font-weight: 700;
+            min-width: 36px;
+            text-align: center;
+            padding: 2px 7px;
+            border-radius: 99px;
+            transition: background .3s, color .3s;
+        }
+
+        .toggle-state-label.on {
+            background: rgba(99, 102, 241, .2);
+            color: #a5b4fc;
+        }
+
+        .toggle-state-label.off {
+            background: rgba(255, 255, 255, .07);
+            color: var(--muted);
+        }
+
+        .compress-savings {
+            font-size: .7rem;
+            color: var(--green);
+            margin-top: 2px;
+            display: block;
+        }
+
+        /* ══════════════════════════════════
+       UPLOAD BUTTON
+    ══════════════════════════════════ */
+        #uploadBar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            gap: 14px;
+        }
+
+        #uploadBar.visible {
+            display: flex;
+            animation: fadeUp .3s ease;
+        }
+
+        .upload-info {
+            font-size: .85rem;
+            color: var(--muted);
+        }
+
+        .upload-info strong {
+            color: var(--text);
+        }
+
+        #uploadBtn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            padding: 10px 22px;
+            font-size: .9rem;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform .15s, box-shadow .25s;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, .4);
+            white-space: nowrap;
+        }
+
+        #uploadBtn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0);
+            transition: background .2s;
+        }
+
+        #uploadBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(99, 102, 241, .55);
+        }
+
+        #uploadBtn:active {
+            transform: scale(.96);
+        }
+
+        .upload-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, .25);
+            border-radius: 99px;
+            font-size: .72rem;
+            padding: 0 5px;
+        }
+
+        /* pending card status */
+        .card-status.pending {
+            color: #fbbf24;
+        }
+
+        /* ══════════════════════════════════
        FOOTER
     ══════════════════════════════════ */
         footer {
             position: relative;
             z-index: 1;
-            color: var(--muted);
-            font-size: .75rem;
             text-align: center;
             margin-top: 16px;
+        }
+
+        .footer-main {
+            color: var(--muted);
+            font-size: .75rem;
+            margin-bottom: 10px;
+        }
+
+        .footer-credit {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: .78rem;
+            font-weight: 600;
+            color: transparent;
+            background: linear-gradient(135deg, #a5b4fc, #818cf8, #38bdf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            opacity: .7;
+            transition: opacity .3s;
+            letter-spacing: .02em;
+        }
+
+        .footer-credit:hover {
+            opacity: 1;
+        }
+
+        .footer-credit::before {
+            content: '';
+            display: inline-block;
+            width: 30px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #818cf8);
+        }
+
+        .footer-credit::after {
+            content: '';
+            display: inline-block;
+            width: 30px;
+            height: 1px;
+            background: linear-gradient(90deg, #818cf8, transparent);
         }
     </style>
 </head>
@@ -490,6 +719,47 @@
             <p class="dz-sub">صور • فيديو • PDF — متعدد الملفات دفعة واحدة</p>
         </div>
 
+        <!-- ── COMPRESS TOGGLE ── -->
+        <div class="compress-bar glass">
+            <div class="compress-label">
+                🗜️ ضغط تلقائي للصور
+                <span class="hint">يقلل الحجم قبل الرفع</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+                <span class="toggle-state-label on" id="toggleLabel">مفعّل</span>
+                <label class="toggle-wrap">
+                    <input type="checkbox" id="compressToggle" checked onchange="updateToggleLabel(this)" />
+                    <span class="toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- ── GIF COMPRESS TOGGLE ── -->
+        <div class="compress-bar glass">
+            <div class="compress-label">
+                🎞️ ضغط GIF مع حفظ الأنيميشن
+                <span class="hint">يستغرق وقتاً أطول</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+                <span class="toggle-state-label on" id="gifToggleLabel">مفعّل</span>
+                <label class="toggle-wrap">
+                    <input type="checkbox" id="gifCompressToggle" checked onchange="updateGifToggleLabel(this)" />
+                    <span class="toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- ── UPLOAD BAR ── -->
+        <div id="uploadBar" class="glass">
+            <div class="upload-info">
+                جاهز للرفع: <strong id="pendingCount">0</strong> ملف
+            </div>
+            <button id="uploadBtn" onclick="startUpload()">
+                ⚡ ارفع الآن
+                <span class="upload-badge" id="uploadBadge">0</span>
+            </button>
+        </div>
+
         <!-- ── RESULTS ── -->
         <p class="section-title" id="sectionTitle">⚡ الملفات المرفوعة</p>
         <div id="results"></div>
@@ -498,7 +768,10 @@
 
     <div id="toast"></div>
 
-    <footer>Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</footer>
+    <footer>
+        <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
+        <span class="footer-credit">Developed by Mahmoud Walid</span>
+    </footer>
 
     <!-- ══════════════════════════════════
      JAVASCRIPT
@@ -533,18 +806,231 @@
             handleFiles(e.dataTransfer.files);
         });
 
-        /* ─── Handle files ─── */
+        /* ─── pending queue ─── */
+        let pendingFiles = [];
+
+        function updateToggleLabel(cb) {
+            const lbl = document.getElementById('toggleLabel');
+            lbl.textContent = cb.checked ? 'مفعّل' : 'معطّل';
+            lbl.className = 'toggle-state-label ' + (cb.checked ? 'on' : 'off');
+        }
+
+        function updateGifToggleLabel(cb) {
+            const lbl = document.getElementById('gifToggleLabel');
+            lbl.textContent = cb.checked ? 'مفعّل' : 'معطّل';
+            lbl.className = 'toggle-state-label ' + (cb.checked ? 'on' : 'off');
+        }
+
+        function refreshUploadBar() {
+            const bar = document.getElementById('uploadBar');
+            const count = document.getElementById('pendingCount');
+            const badge = document.getElementById('uploadBadge');
+            if (pendingFiles.length > 0) {
+                bar.classList.add('visible');
+                count.textContent = pendingFiles.length;
+                badge.textContent = pendingFiles.length;
+            } else {
+                bar.classList.remove('visible');
+            }
+        }
+
+        /* ─── Handle files → show preview only ─── */
         function handleFiles(files) {
-            const sectionTitle = document.getElementById('sectionTitle');
-            sectionTitle.style.display = 'block';
-            [...files].forEach(uploadFile);
+            document.getElementById('sectionTitle').style.display = 'block';
+            [...files].forEach(file => {
+                pendingFiles.push(file);
+                showPreviewCard(file);
+            });
+            refreshUploadBar();
+            // reset input so same file can be re-selected
+            document.getElementById('fileInput').value = '';
+        }
+
+        /* ─── Show a preview card (no upload yet) ─── */
+        function showPreviewCard(file) {
+            const type = getFileType(file);
+            const isImg = type === 'image';
+            const isGif = file.type === 'image/gif';
+            const MAX_BYTES = 10 * 1024 * 1024;
+            const id = 'prev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+            file._previewId = id;
+
+            const thumbHTML = isImg
+                ? `<div class="thumb"><img src="${URL.createObjectURL(file)}" alt="" /></div>`
+                : `<div class="thumb">${typeEmoji(type)}</div>`;
+
+            // Tip for small GIFs: no need to compress
+            const gifTip = (isGif && file.size <= MAX_BYTES)
+                ? `<div style="margin-top:6px;font-size:.72rem;background:rgba(34,197,94,.12);
+                    border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:5px 9px;color:#86efac;line-height:1.4">
+                    💡 الـ GIF أقل من 10 MB — يُنصح بإيقاف ضغط GIF للحفاظ على الجودة
+                   </div>`
+                : '';
+
+            const card = document.createElement('div');
+            card.className = 'result-card glass';
+            card.id = id;
+            card.innerHTML = `
+      <div class="card-top">
+        ${thumbHTML}
+        <div class="card-info">
+          <div class="card-name">
+            ${escHtml(file.name)}
+            <span class="badge ${type}">${type.toUpperCase()}</span>
+          </div>
+          <div class="card-status pending">⏳ في انتظار الرفع — ${formatSize(file.size)}</div>
+          ${gifTip}
+        </div>
+      </div>
+    `;
+            document.getElementById('results').prepend(card);
+        }
+
+        /* ─── Start upload for all pending ─── */
+        async function startUpload() {
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ جاري الرفع…';
+            const toUpload = [...pendingFiles];
+            pendingFiles = [];
+            refreshUploadBar();
+            for (const file of toUpload) {
+                // remove preview card and replace with upload card
+                const prevCard = document.getElementById(file._previewId);
+                if (prevCard) prevCard.remove();
+                await uploadFile(file);
+            }
+            btn.disabled = false;
+            btn.innerHTML = '⚡ ارفع الآن <span class="upload-badge" id="uploadBadge">0</span>';
+        }
+
+        /* ─── Compress GIF (preserving animation) ─── */
+        function compressGif(file, maxBytes) {
+            return new Promise(async (resolve) => {
+                if (file.size <= maxBytes) { resolve(file); return; }
+                try {
+                    const bytes = new Uint8Array(await file.arrayBuffer());
+                    const gr = new GifReader(bytes);
+                    const srcW = gr.width, srcH = gr.height;
+                    const numFrames = gr.numFrames();
+
+                    // Scale down long side to max 1000px
+                    const MAX_DIM = 1000;
+                    const scale = Math.min(1, MAX_DIM / Math.max(srcW, srcH));
+                    const dstW = Math.round(srcW * scale);
+                    const dstH = Math.round(srcH * scale);
+
+                    const gif = new GIF({
+                        workers: 2,
+                        quality: 15,   // 1=best quality, 20=most compression
+                        width: dstW,
+                        height: dstH,
+                        workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js',
+                    });
+
+                    // decode each frame → draw scaled → add to encoder
+                    const srcCanvas = document.createElement('canvas');
+                    srcCanvas.width = srcW; srcCanvas.height = srcH;
+                    const srcCtx = srcCanvas.getContext('2d');
+
+                    const dstCanvas = document.createElement('canvas');
+                    dstCanvas.width = dstW; dstCanvas.height = dstH;
+                    const dstCtx = dstCanvas.getContext('2d');
+
+                    const pixBuf = new Uint8ClampedArray(srcW * srcH * 4);
+
+                    for (let i = 0; i < numFrames; i++) {
+                        const info = gr.frameInfo(i);
+                        gr.decodeAndBlitFrameRGBA(i, pixBuf);
+                        srcCtx.putImageData(new ImageData(pixBuf.slice(), srcW, srcH), 0, 0);
+                        dstCtx.clearRect(0, 0, dstW, dstH);
+                        dstCtx.drawImage(srcCanvas, 0, 0, dstW, dstH);
+                        gif.addFrame(dstCtx, { copy: true, delay: (info.delay || 10) * 10 });
+                    }
+
+                    gif.on('finished', blob => {
+                        if (blob.size < file.size) {
+                            resolve(new File([blob], file.name, { type: 'image/gif', lastModified: Date.now() }));
+                        } else {
+                            resolve(file); // original already smaller
+                        }
+                    });
+
+                    gif.render();
+                } catch (e) {
+                    console.warn('GIF compress error:', e);
+                    resolve(file); // fallback: upload original
+                }
+            });
+        }
+
+        /* ─── Compress image using Canvas ─── */
+        function compressImage(file, maxBytes) {
+            return new Promise(resolve => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    const canvas = document.createElement('canvas');
+                    let { width, height } = img;
+
+                    // Scale down if too large (max 2400px on longest side)
+                    const MAX_DIM = 2400;
+                    if (width > MAX_DIM || height > MAX_DIM) {
+                        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+                        width = Math.round(width * ratio);
+                        height = Math.round(height * ratio);
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+                    // Try reducing quality until size fits
+                    let quality = 0.85;
+                    const tryEncode = () => {
+                        canvas.toBlob(blob => {
+                            if (!blob) { resolve(file); return; }
+                            if (blob.size <= maxBytes || quality < 0.12) {
+                                const compressed = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() });
+                                resolve(compressed);
+                            } else {
+                                quality -= 0.1;
+                                tryEncode();
+                            }
+                        }, 'image/jpeg', quality);
+                    };
+                    tryEncode();
+                };
+                img.onerror = () => resolve(file); // fallback: upload original
+                img.src = url;
+            });
         }
 
         /* ─── Upload ─── */
-        function uploadFile(file) {
+        async function uploadFile(file) {
             const id = 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
             const type = getFileType(file);
             const isImg = type === 'image';
+            const originalSize = file.size;
+            const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+            const doCompress = document.getElementById('compressToggle').checked;
+            const doCompressGif = document.getElementById('gifCompressToggle').checked;
+            // SVG=vector (skip), WebP=Canvas result often bigger (skip)
+            const SKIP_TYPES = ['image/svg+xml', 'image/webp'];
+            const isGif = file.type === 'image/gif';
+            const canCompress = isImg && !SKIP_TYPES.includes(file.type) && !isGif;
+
+            // Compress when respective toggle is on
+            if ((doCompress && canCompress) || (doCompressGif && isGif)) {
+                const stEl = document.createElement('div');
+                stEl.textContent = isGif ? '🎞️ جاري ضغط GIF مع حفظ الأنيميشن…' : '🗜️ جاري ضغط الصورة…';
+                stEl.style.cssText = 'font-size:.8rem;color:var(--muted);text-align:center;padding:6px 0';
+                document.getElementById('results').prepend(stEl);
+                file = isGif
+                    ? await compressGif(file, MAX_BYTES)
+                    : await compressImage(file, MAX_BYTES);
+                stEl.remove();
+            }
 
             const thumbHTML = isImg
                 ? `<div class="thumb"><img id="${id}_thumb" src="${URL.createObjectURL(file)}" alt="" /></div>`
@@ -566,12 +1052,25 @@
               colors="primary:#818cf8" style="width:16px;height:16px"></lord-icon>
             جاري الرفع…
           </div>
+          ${canCompress && doCompress && file.size < originalSize
+                    ? `<span class="compress-savings">🗜️ ضُغطت: ${formatSize(originalSize)} ← ${formatSize(file.size)}</span>`
+                    : ''}
         </div>
       </div>
       <div class="progress-wrap"><div class="progress-bar" id="${id}_bar"></div></div>
       <div id="${id}_url"></div>
     `;
             document.getElementById('results').prepend(card);
+
+            /* ─── Size check (after compression) ─── */
+            if (file.size > MAX_BYTES) {
+                document.getElementById(id + '_st').className = 'card-status err';
+                document.getElementById(id + '_st').textContent =
+                    `❌ حجم الملف كبير (${formatSize(file.size)}) — الحد الأقصى المسموح 10 MB`;
+                document.getElementById(id + '_bar').style.background = 'var(--red)';
+                document.getElementById(id + '_bar').style.width = '100%';
+                return;
+            }
 
             /* XHR */
             const fd = new FormData();
@@ -631,12 +1130,13 @@
 
         /* ─── Helpers ─── */
         function getFileType(file) {
+            if (file.type === 'image/gif') return 'gif';
             if (file.type.startsWith('image/')) return 'image';
             if (file.type.startsWith('video/')) return 'video';
             return 'doc';
         }
         function typeEmoji(t) {
-            return { image: '🖼️', video: '🎬', doc: '📄' }[t] ?? '📁';
+            return { image: '🖼️', gif: '🎞️', video: '🎬', doc: '📄' }[t] ?? '�️';
         }
         function formatSize(bytes) {
             return bytes > 1048576
