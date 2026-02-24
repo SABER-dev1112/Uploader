@@ -17,15 +17,15 @@
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
     <!-- GIF compression libs -->
-    <!-- shim: give omggif a CommonJS-style exports object -->
-    <script>window.exports = {}; window.module = { exports: window.exports };</script>
+    <script>
+        // Simple shim to make omggif work in browser without full CommmonJS
+        window.module = { exports: {} };
+        window.exports = window.module.exports;
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
     <script>
-        // Extract GifReader BEFORE gif.js loads
-        window.GifReader = window.exports.GifReader ||
-            (window.module && window.module.exports && window.module.exports.GifReader);
-        // !! CRITICAL: remove window.module so gif.js uses the browser-global UMD
-        // path and sets window.GIF instead of module.exports
+        // Extract GifReader and clean up to avoid confusing other libs like gif.js
+        window.GifReader = window.module.exports.GifReader || window.GifReader;
         delete window.module;
         delete window.exports;
     </script>
@@ -865,7 +865,7 @@
     <footer>
         <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
         <span class="footer-credit">Developed by Mahmoud Walid</span>
-        <span class="footer-version">V 1.1</span>
+        <span class="footer-version">V 1.2</span>
     </footer>
 
     <!-- ══════════════════════════════════
@@ -1050,11 +1050,11 @@
 
                     const srcCanvas = document.createElement('canvas');
                     srcCanvas.width = srcW; srcCanvas.height = srcH;
-                    const srcCtx = srcCanvas.getContext('2d');
+                    const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
 
                     const dstCanvas = document.createElement('canvas');
                     dstCanvas.width = dstW; dstCanvas.height = dstH;
-                    const dstCtx = dstCanvas.getContext('2d');
+                    const dstCtx = dstCanvas.getContext('2d', { willReadFrequently: true });
 
                     const pixBuf = new Uint8ClampedArray(srcW * srcH * 4);
                     for (let i = 0; i < numFrames; i++) {
@@ -1103,7 +1103,7 @@
                     }
                     canvas.width = width;
                     canvas.height = height;
-                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    canvas.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0, width, height);
 
                     // Try reducing quality until size fits
                     let quality = 0.85;
@@ -1177,7 +1177,7 @@
             <span class="badge ${type}">${type.toUpperCase()}</span>
           </div>
           <div class="card-status" id="${id}_st">
-            <lord-icon src="https://cdn.lordicon.com/jpgpblwu.json" trigger="loop" delay="500"
+            <lord-icon src="https://cdn.lordicon.com/zhfhowob.json" trigger="loop" delay="500"
               colors="primary:#818cf8" style="width:16px;height:16px"></lord-icon>
             جاري الرفع…
           </div>
