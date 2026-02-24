@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>رافع الصور ☁️</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+
+    <!-- Lordicon -->
+    <script src="https://cdn.lordicon.com/lordicon.js"></script>
+
+    <!-- Typed.js -->
+    <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
+
+    <style>
+        /* ══════════════════════════════════
+       RESET & BASE
+    ══════════════════════════════════ */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-from: #0a0c1b;
+            --bg-to: #0f172a;
+            --glass-bg: rgba(255, 255, 255, .06);
+            --glass-border: rgba(255, 255, 255, .13);
+            --glass-hover: rgba(255, 255, 255, .10);
+            --accent: #6366f1;
+            --accent2: #8b5cf6;
+            --accent3: #06b6d4;
+            --green: #22c55e;
+            --red: #f87171;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --radius: 20px;
+        }
+
+        html,
+        body {
+            min-height: 100vh;
+            font-family: 'Cairo', sans-serif;
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 16px 80px;
+            position: relative;
+        }
+
+        /* ── Animated gradient blobs ── */
+        body::before,
+        body::after {
+            content: '';
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: .35;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::before {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, #6366f1, transparent 70%);
+            top: -150px;
+            right: -150px;
+            animation: blobMove1 12s ease-in-out infinite alternate;
+        }
+
+        body::after {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, #06b6d4, transparent 70%);
+            bottom: -100px;
+            left: -100px;
+            animation: blobMove2 15s ease-in-out infinite alternate;
+        }
+
+        @keyframes blobMove1 {
+            to {
+                transform: translate(-60px, 60px) scale(1.1);
+            }
+        }
+
+        @keyframes blobMove2 {
+            to {
+                transform: translate(60px, -60px) scale(1.15);
+            }
+        }
+
+        /* ══════════════════════════════════
+       GLASS UTILITY
+    ══════════════════════════════════ */
+        .glass {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(24px) saturate(160%);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+            border-radius: var(--radius);
+        }
+
+        /* ══════════════════════════════════
+       LAYOUT WRAPPER
+    ══════════════════════════════════ */
+        .wrap {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 720px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* ══════════════════════════════════
+       HEADER
+    ══════════════════════════════════ */
+        header {
+            text-align: center;
+            padding: 10px 0 6px;
+        }
+
+        .header-icon {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        header h1 {
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, #a5b4fc, #818cf8, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: .95rem;
+            min-height: 28px;
+        }
+
+        #typed-cursor {
+            color: var(--accent3);
+        }
+
+        /* ══════════════════════════════════
+       DROP ZONE
+    ══════════════════════════════════ */
+        .dropzone {
+            padding: 52px 24px;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            transition: background .25s, border-color .25s, transform .2s;
+        }
+
+        .dropzone:hover {
+            background: var(--glass-hover);
+            transform: translateY(-2px);
+        }
+
+        .dropzone.drag {
+            background: rgba(99, 102, 241, .15);
+            border-color: var(--accent);
+        }
+
+        .dropzone .drag-glow {
+            position: absolute;
+            inset: 0;
+            border-radius: var(--radius);
+            background: radial-gradient(ellipse at center, rgba(99, 102, 241, .18) 0%, transparent 70%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .3s;
+        }
+
+        .dropzone.drag .drag-glow {
+            opacity: 1;
+        }
+
+        .dropzone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .dz-label {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 16px 0 6px;
+            color: var(--text);
+        }
+
+        .dz-sub {
+            color: var(--muted);
+            font-size: .85rem;
+        }
+
+        /* ══════════════════════════════════
+       RESULTS SECTION TITLE
+    ══════════════════════════════════ */
+        .section-title {
+            font-size: .8rem;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            padding: 0 4px;
+            display: none;
+        }
+
+        /* ══════════════════════════════════
+       RESULT CARD
+    ══════════════════════════════════ */
+        #results {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .result-card {
+            padding: 16px 18px;
+            animation: fadeUp .35s ease;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card-top {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 10px;
+        }
+
+        .thumb {
+            width: 58px;
+            height: 58px;
+            flex-shrink: 0;
+            object-fit: cover;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            overflow: hidden;
+        }
+
+        .thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .card-name {
+            font-size: .9rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-status {
+            font-size: .78rem;
+            color: var(--muted);
+            margin-top: 3px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .card-status.done {
+            color: var(--green);
+        }
+
+        .card-status.err {
+            color: var(--red);
+        }
+
+        /* progress */
+        .progress-wrap {
+            height: 4px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, .08);
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--accent3));
+            border-radius: 99px;
+            transition: width .3s;
+        }
+
+        /* url row */
+        .url-label {
+            font-size: .72rem;
+            color: var(--muted);
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .url-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .url-box {
+            flex: 1;
+            background: rgba(0, 0, 0, .3);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            color: #93c5fd;
+            padding: 8px 12px;
+            font-size: .75rem;
+            font-family: 'Courier New', monospace;
+            direction: ltr;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: text;
+            user-select: all;
+        }
+
+        .copy-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(99, 102, 241, .15);
+            border: 1px solid rgba(99, 102, 241, .35);
+            border-radius: 10px;
+            color: #a5b4fc;
+            padding: 7px 14px;
+            cursor: pointer;
+            font-size: .8rem;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 700;
+            white-space: nowrap;
+            transition: background .2s, color .2s, border-color .2s, transform .1s;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .copy-btn:active {
+            transform: scale(.95);
+        }
+
+        .copy-btn.copied {
+            background: var(--green);
+            color: #fff;
+            border-color: var(--green);
+        }
+
+        /* ══════════════════════════════════
+       BADGE — file type pill
+    ══════════════════════════════════ */
+        .badge {
+            font-size: .65rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 99px;
+            background: rgba(99, 102, 241, .2);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, .3);
+            letter-spacing: .04em;
+        }
+
+        .badge.video {
+            background: rgba(236, 72, 153, .15);
+            color: #f9a8d4;
+            border-color: rgba(236, 72, 153, .3);
+        }
+
+        .badge.doc {
+            background: rgba(245, 158, 11, .15);
+            color: #fcd34d;
+            border-color: rgba(245, 158, 11, .3);
+        }
+
+        /* ══════════════════════════════════
+       TOAST
+    ══════════════════════════════════ */
+        #toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--green);
+            color: #fff;
+            padding: 10px 26px;
+            border-radius: 99px;
+            font-size: .9rem;
+            font-weight: 700;
+            transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
+            pointer-events: none;
+            z-index: 999;
+            box-shadow: 0 8px 30px rgba(34, 197, 94, .35);
+        }
+
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ══════════════════════════════════
+       FOOTER
+    ══════════════════════════════════ */
+        footer {
+            position: relative;
+            z-index: 1;
+            color: var(--muted);
+            font-size: .75rem;
+            text-align: center;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="wrap">
+
+        <!-- ── HEADER ── -->
+        <header>
+            <div class="header-icon">
+                <lord-icon src="https://cdn.lordicon.com/wmwqvixz.json" trigger="loop" delay="1000"
+                    colors="primary:#818cf8,secondary:#38bdf8" style="width:80px;height:80px">
+                </lord-icon>
+            </div>
+            <h1>رافع الصور على Cloudinary</h1>
+            <p class="subtitle">
+                <span id="typed"></span>
+            </p>
+        </header>
+
+        <!-- ── DROP ZONE ── -->
+        <div class="dropzone glass" id="dropzone">
+            <div class="drag-glow"></div>
+            <input type="file" id="fileInput" multiple accept="image/*,video/*,.pdf,.svg,.webp"
+                onchange="handleFiles(this.files)" />
+
+            <lord-icon src="https://cdn.lordicon.com/fikcyfpp.json" trigger="hover" target=".dropzone"
+                colors="primary:#818cf8,secondary:#38bdf8" style="width:72px;height:72px">
+            </lord-icon>
+
+            <p class="dz-label">اسحب ملفاتك هنا أو اضغط للاختيار</p>
+            <p class="dz-sub">صور • فيديو • PDF — متعدد الملفات دفعة واحدة</p>
+        </div>
+
+        <!-- ── RESULTS ── -->
+        <p class="section-title" id="sectionTitle">⚡ الملفات المرفوعة</p>
+        <div id="results"></div>
+
+    </div><!-- /wrap -->
+
+    <div id="toast"></div>
+
+    <footer>Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</footer>
+
+    <!-- ══════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════ -->
+    <script>
+        /* ─── CONFIG (hardcoded) ─── */
+        const CLOUD_NAME = 'du2knsck4';
+        const UPLOAD_PRESET = 'Upload';
+
+        /* ─── Typed.js ─── */
+        new Typed('#typed', {
+            strings: [
+                'ارفع صورك واحصل على رابط محسّن 🚀',
+                'f_auto · q_auto تلقائياً ✨',
+                'جودة مثالية وحجم أصغر 💡',
+                'اسحب أو اضغط وارفع ⚡',
+            ],
+            typeSpeed: 45,
+            backSpeed: 25,
+            backDelay: 2200,
+            loop: true,
+            cursorChar: '|',
+        });
+
+        /* ─── Drag & Drop ─── */
+        const dz = document.getElementById('dropzone');
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+        dz.addEventListener('dragleave', e => { if (!dz.contains(e.relatedTarget)) dz.classList.remove('drag'); });
+        dz.addEventListener('drop', e => {
+            e.preventDefault();
+            dz.classList.remove('drag');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        /* ─── Handle files ─── */
+        function handleFiles(files) {
+            const sectionTitle = document.getElementById('sectionTitle');
+            sectionTitle.style.display = 'block';
+            [...files].forEach(uploadFile);
+        }
+
+        /* ─── Upload ─── */
+        function uploadFile(file) {
+            const id = 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+            const type = getFileType(file);
+            const isImg = type === 'image';
+
+            const thumbHTML = isImg
+                ? `<div class="thumb"><img id="${id}_thumb" src="${URL.createObjectURL(file)}" alt="" /></div>`
+                : `<div class="thumb">${typeEmoji(type)}</div>`;
+
+            const card = document.createElement('div');
+            card.className = 'result-card glass';
+            card.id = id;
+            card.innerHTML = `
+      <div class="card-top">
+        ${thumbHTML}
+        <div class="card-info">
+          <div class="card-name">
+            ${escHtml(file.name)}
+            <span class="badge ${type}">${type.toUpperCase()}</span>
+          </div>
+          <div class="card-status" id="${id}_st">
+            <lord-icon src="https://cdn.lordicon.com/jpgpblwu.json" trigger="loop" delay="500"
+              colors="primary:#818cf8" style="width:16px;height:16px"></lord-icon>
+            جاري الرفع…
+          </div>
+        </div>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" id="${id}_bar"></div></div>
+      <div id="${id}_url"></div>
+    `;
+            document.getElementById('results').prepend(card);
+
+            /* XHR */
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('upload_preset', UPLOAD_PRESET);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`);
+
+            xhr.upload.onprogress = e => {
+                if (e.lengthComputable) {
+                    document.getElementById(id + '_bar').style.width =
+                        Math.round(e.loaded / e.total * 100) + '%';
+                }
+            };
+
+            xhr.onload = () => {
+                const bar = document.getElementById(id + '_bar');
+                bar.style.width = '100%';
+
+                if (xhr.status === 200) {
+                    const res = JSON.parse(xhr.responseText);
+                    const optUrl = res.secure_url.replace('/upload/', '/upload/f_auto,q_auto/');
+
+                    document.getElementById(id + '_st').className = 'card-status done';
+                    document.getElementById(id + '_st').innerHTML = `
+          <lord-icon src="https://cdn.lordicon.com/oqdmuxru.json" trigger="loop" delay="1000"
+            colors="primary:#22c55e" style="width:16px;height:16px"></lord-icon>
+          تم الرفع بنجاح — ${formatSize(res.bytes)}`;
+
+                    document.getElementById(id + '_url').innerHTML = `
+          <span class="url-label">🔗 الرابط المحسّن (f_auto · q_auto)</span>
+          <div class="url-row">
+            <div class="url-box" id="${id}_link">${optUrl}</div>
+            <button class="copy-btn" onclick="copyUrl('${id}_link', this)">
+              <lord-icon src="https://cdn.lordicon.com/depeqmsz.json" trigger="hover"
+                colors="primary:#a5b4fc" style="width:16px;height:16px"></lord-icon>
+              نسخ
+            </button>
+          </div>`;
+                } else {
+                    const err = tryParse(xhr.responseText);
+                    document.getElementById(id + '_st').className = 'card-status err';
+                    document.getElementById(id + '_st').textContent =
+                        '❌ ' + (err?.error?.message || 'فشل الرفع — كود: ' + xhr.status);
+                    bar.style.background = 'var(--red)';
+                }
+            };
+
+            xhr.onerror = () => {
+                document.getElementById(id + '_st').className = 'card-status err';
+                document.getElementById(id + '_st').textContent = '❌ تعذّر الاتصال بالسيرفر';
+            };
+
+            xhr.send(fd);
+        }
+
+        /* ─── Helpers ─── */
+        function getFileType(file) {
+            if (file.type.startsWith('image/')) return 'image';
+            if (file.type.startsWith('video/')) return 'video';
+            return 'doc';
+        }
+        function typeEmoji(t) {
+            return { image: '🖼️', video: '🎬', doc: '📄' }[t] ?? '📁';
+        }
+        function formatSize(bytes) {
+            return bytes > 1048576
+                ? (bytes / 1048576).toFixed(1) + ' MB'
+                : (bytes / 1024).toFixed(0) + ' KB';
+        }
+        function escHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function tryParse(s) { try { return JSON.parse(s); } catch { return null; } }
+
+        /* ─── Copy ─── */
+        function copyUrl(elId, btn) {
+            const text = document.getElementById(elId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                btn.innerHTML = `<lord-icon src="https://cdn.lordicon.com/oqdmuxru.json" trigger="loop"
+        colors="primary:#fff" style="width:16px;height:16px"></lord-icon> تم!`;
+                btn.classList.add('copied');
+                showToast('✅ تم نسخ الرابط!');
+                setTimeout(() => {
+                    btn.innerHTML = `<lord-icon src="https://cdn.lordicon.com/depeqmsz.json" trigger="hover"
+          colors="primary:#a5b4fc" style="width:16px;height:16px"></lord-icon> نسخ`;
+                    btn.classList.remove('copied');
+                }, 2500);
+            });
+        }
+
+        /* ─── Toast ─── */
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2600);
+        }
+    </script>
+</body>
+
+</html>
