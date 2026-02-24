@@ -875,7 +875,7 @@
     <footer>
         <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
         <span class="footer-credit">Developed by Mahmoud Walid</span>
-        <span class="footer-version">V 1.4</span>
+        <span class="footer-version">V 1.5</span>
     </footer>
 
     <!-- ══════════════════════════════════
@@ -1043,8 +1043,13 @@
                 const srcW = gr.width, srcH = gr.height;
                 const numFrames = gr.numFrames();
 
-                // Scale down long side to max 800px
-                const MAX_DIM = 800;
+                // Aggressive adaptive scaling:
+                // If file is > 15MB, target 500px. If > 25MB, target 400px.
+                let MAX_DIM = 800;
+                if (file.size > 25 * 1024 * 1024) MAX_DIM = 400;
+                else if (file.size > 15 * 1024 * 1024) MAX_DIM = 600;
+                else if (file.size > 12 * 1024 * 1024) MAX_DIM = 700;
+
                 const scale = Math.min(1, MAX_DIM / Math.max(srcW, srcH));
                 const dstW = Math.round(srcW * scale);
                 const dstH = Math.round(srcH * scale);
@@ -1055,7 +1060,7 @@
                 const blob = await new Promise((res, rej) => {
                     const gif = new GifCls({
                         workers: 2,
-                        quality: 20,
+                        quality: file.size > 15 * 1024 * 1024 ? 30 : 20, // Higher value means more aggressive compression
                         width: dstW,
                         height: dstH,
                         workerScript: workerUrl,
@@ -1108,7 +1113,11 @@
                     let { width, height } = img;
 
                     // Scale down if too large (max 2400px on longest side)
-                    const MAX_DIM = 2400;
+                    // Aggressive scaling for standard images if they are huge
+                    let MAX_DIM = 2400;
+                    if (file.size > 12 * 1024 * 1024) MAX_DIM = 1600;
+                    if (file.size > 20 * 1024 * 1024) MAX_DIM = 1200;
+
                     if (width > MAX_DIM || height > MAX_DIM) {
                         const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
                         width = Math.round(width * ratio);
@@ -1123,11 +1132,12 @@
                     const tryEncode = () => {
                         canvas.toBlob(blob => {
                             if (!blob) { resolve(file); return; }
-                            if (blob.size <= maxBytes || quality < 0.12) {
+                            // Lower floor for quality to ensure it fits
+                            if (blob.size <= maxBytes || quality < 0.05) {
                                 const compressed = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() });
                                 resolve(compressed);
                             } else {
-                                quality -= 0.1;
+                                quality -= 0.15; // Faster reduction
                                 tryEncode();
                             }
                         }, 'image/jpeg', quality);
