@@ -17,14 +17,17 @@
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
     <!-- GIF compression libs -->
-    <!-- shim: omggif uses CommonJS exports, not available in browser by default -->
+    <!-- shim: give omggif a CommonJS-style exports object -->
     <script>window.exports = {}; window.module = { exports: window.exports };</script>
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
     <script>
-        // Expose GifReader globally after omggif loads
+        // Extract GifReader BEFORE gif.js loads
         window.GifReader = window.exports.GifReader ||
-            (window.module && window.module.exports && window.module.exports.GifReader) ||
-            window.GifReader;
+            (window.module && window.module.exports && window.module.exports.GifReader);
+        // !! CRITICAL: remove window.module so gif.js uses the browser-global UMD
+        // path and sets window.GIF instead of module.exports
+        delete window.module;
+        delete window.exports;
     </script>
     <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 
@@ -862,7 +865,7 @@
     <footer>
         <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
         <span class="footer-credit">Developed by Mahmoud Walid</span>
-        <span class="footer-version">V 1.0</span>
+        <span class="footer-version">V 1.1</span>
     </footer>
 
     <!-- ══════════════════════════════════
