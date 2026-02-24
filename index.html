@@ -17,7 +17,15 @@
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
     <!-- GIF compression libs -->
+    <!-- shim: omggif uses CommonJS exports, not available in browser by default -->
+    <script>window.exports = {}; window.module = { exports: window.exports };</script>
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
+    <script>
+        // Expose GifReader globally after omggif loads
+        window.GifReader = window.exports.GifReader ||
+            (window.module && window.module.exports && window.module.exports.GifReader) ||
+            window.GifReader;
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 
     <style>
@@ -904,6 +912,20 @@
             btn.innerHTML = '⚡ ارفع الآن <span class="upload-badge" id="uploadBadge">0</span>';
         }
 
+        /* ─── Load gif.js worker as Blob URL (bypasses CSP on GitHub Pages) ─── */
+        let _gifWorkerUrl = null;
+        async function getGifWorkerUrl() {
+            if (_gifWorkerUrl) return _gifWorkerUrl;
+            try {
+                const res = await fetch('https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js');
+                const text = await res.text();
+                _gifWorkerUrl = URL.createObjectURL(new Blob([text], { type: 'application/javascript' }));
+            } catch (e) {
+                _gifWorkerUrl = 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js';
+            }
+            return _gifWorkerUrl;
+        }
+
         /* ─── Compress GIF (preserving animation) ─── */
         function compressGif(file, maxBytes) {
             return new Promise(async (resolve) => {
@@ -921,11 +943,11 @@
                     const dstH = Math.round(srcH * scale);
 
                     const gif = new GIF({
-                        workers: 0,      // 0 = main thread, avoids CORS issue on local files
+                        workers: 2,
                         quality: 20,     // 1=best quality, 20=most compression
                         width: dstW,
                         height: dstH,
-                        workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js',
+                        workerScript: await getGifWorkerUrl(),
                     });
 
                     // decode each frame → draw scaled → add to encoder
