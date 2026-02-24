@@ -1089,13 +1089,9 @@
 
             const xhr = new XMLHttpRequest();
 
-            // --- الحل السحري لتخطي قيود الـ 10 ميجا للـ GIF ---
+            // Cloudinary requires 'auto' for most files to auto-detect, or 'video' for native video types.
+            // Using 'video' for a .gif file throws "Unsupported file type".
             let resourceType = 'auto';
-            if (isGif && file.size > 9.5 * 1024 * 1024) {
-                resourceType = 'video'; // إجبار الرفع كفيديو للـ GIF الكبير
-            } else if (type === 'video') {
-                resourceType = 'video';
-            }
 
             xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`);
 
