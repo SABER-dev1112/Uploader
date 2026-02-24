@@ -6,17 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>رافع الصور ☁️</title>
 
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
 
-    <!-- Lordicon -->
     <script src="https://cdn.lordicon.com/lordicon.js"></script>
 
-    <!-- Typed.js -->
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
 
-    <!-- GIF compression libs -->
     <script>
         // Simple shim to make omggif work in browser without full CommmonJS
         window.module = { exports: {} };
@@ -796,7 +792,6 @@
 
     <div class="wrap">
 
-        <!-- ── HEADER ── -->
         <header>
             <div class="header-icon">
                 <lord-icon src="https://cdn.lordicon.com/wmwqvixz.json" trigger="loop" delay="1000"
@@ -809,7 +804,6 @@
             </p>
         </header>
 
-        <!-- ── DROP ZONE ── -->
         <div class="dropzone glass" id="dropzone">
             <div class="drag-glow"></div>
             <input type="file" id="fileInput" multiple accept="image/*,video/*,.pdf,.svg,.webp"
@@ -823,7 +817,6 @@
             <p class="dz-sub">صور • فيديو • PDF — متعدد الملفات دفعة واحدة</p>
         </div>
 
-        <!-- ── COMPRESS TOGGLE ── -->
         <div class="compress-bar glass">
             <div class="compress-label">
                 🗜️ ضغط تلقائي للصور
@@ -838,7 +831,6 @@
             </div>
         </div>
 
-        <!-- ── GIF COMPRESS TOGGLE ── -->
         <div class="compress-bar glass">
             <div class="compress-label">
                 🎞️ ضغط GIF مع حفظ الأنيميشن
@@ -853,7 +845,6 @@
             </div>
         </div>
 
-        <!-- ── UPLOAD BAR ── -->
         <div id="uploadBar" class="glass">
             <div class="upload-info">
                 جاهز للرفع: <strong id="pendingCount">0</strong> ملف
@@ -864,23 +855,18 @@
             </button>
         </div>
 
-        <!-- ── RESULTS ── -->
         <p class="section-title" id="sectionTitle">⚡ الملفات المرفوعة</p>
         <div id="results"></div>
 
-    </div><!-- /wrap -->
-
+    </div>
     <div id="toast"></div>
 
     <footer>
         <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
         <span class="footer-credit">Developed by Mahmoud Walid</span>
-        <span class="footer-version">V 1.5</span>
+        <span class="footer-version">V 1.6</span>
     </footer>
 
-    <!-- ══════════════════════════════════
-     JAVASCRIPT
-══════════════════════════════════ -->
     <script>
         /* ─── CONFIG (hardcoded) ─── */
         const CLOUD_NAME = 'du2knsck4';
@@ -956,7 +942,6 @@
             const type = getFileType(file);
             const isImg = type === 'image';
             const isGif = file.type === 'image/gif';
-            const MAX_BYTES = 10 * 1024 * 1024;
             const id = 'prev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
             file._previewId = id;
 
@@ -964,11 +949,10 @@
                 ? `<div class="thumb"><img src="${URL.createObjectURL(file)}" alt="" /></div>`
                 : `<div class="thumb">${typeEmoji(type)}</div>`;
 
-            // Tip for small GIFs: no need to compress
-            const gifTip = (isGif && file.size <= MAX_BYTES)
+            const gifTip = isGif
                 ? `<div style="margin-top:6px;font-size:.72rem;background:rgba(34,197,94,.12);
                     border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:5px 9px;color:#86efac;line-height:1.4">
-                    💡 الـ GIF أقل من 10 MB — يُنصح بإيقاف ضغط GIF للحفاظ على الجودة
+                    💡 ميزة: الـ GIF الأكبر من 10MB سيتم رفعه كـ Video تلقائياً لتخطي قيود الحجم والحفاظ على الجودة الأصلية!
                    </div>`
                 : '';
 
@@ -1154,13 +1138,18 @@
             const id = 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
             const type = getFileType(file);
             const isImg = type === 'image';
+            const isGif = file.type === 'image/gif';
             const originalSize = file.size;
-            const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+            // --- فصل الحجم الأقصى للرفع عن حجم أداة الضغط ---
+            const COMPRESS_TARGET = 10 * 1024 * 1024; // 10 ميجا هدف لضغط الملفات
+            // الحد الأقصى للرفع: 100 ميجا للفيديو والـ GIF، و 10 ميجا للصور العادية
+            const UPLOAD_LIMIT = (type === 'video' || isGif) ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+
             const doCompress = document.getElementById('compressToggle').checked;
             const doCompressGif = document.getElementById('gifCompressToggle').checked;
             // SVG=vector (skip), WebP=Canvas result often bigger (skip)
             const SKIP_TYPES = ['image/svg+xml', 'image/webp'];
-            const isGif = file.type === 'image/gif';
             const canCompress = isImg && !SKIP_TYPES.includes(file.type) && !isGif;
 
             // Compress when respective toggle is on
@@ -1179,8 +1168,8 @@
                     </div>`;
                 document.getElementById('results').prepend(stEl);
                 file = isGif
-                    ? await compressGif(file, MAX_BYTES)
-                    : await compressImage(file, MAX_BYTES);
+                    ? await compressGif(file, COMPRESS_TARGET)
+                    : await compressImage(file, COMPRESS_TARGET);
                 stEl.remove();
             }
 
@@ -1214,10 +1203,10 @@
             document.getElementById('results').prepend(card);
 
             /* ─── Size check (after compression) ─── */
-            if (file.size > MAX_BYTES) {
+            if (file.size > UPLOAD_LIMIT) {
                 document.getElementById(id + '_st').className = 'card-status err';
                 document.getElementById(id + '_st').textContent =
-                    `❌ حجم الملف كبير (${formatSize(file.size)}) — الحد الأقصى المسموح 10 MB`;
+                    `❌ حجم الملف كبير (${formatSize(file.size)}) — الحد الأقصى المسموح ${formatSize(UPLOAD_LIMIT)}`;
                 document.getElementById(id + '_bar').style.background = 'var(--red)';
                 document.getElementById(id + '_bar').style.width = '100%';
                 return;
@@ -1229,7 +1218,16 @@
             fd.append('upload_preset', UPLOAD_PRESET);
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`);
+
+            // --- الحل السحري لتخطي قيود الـ 10 ميجا للـ GIF ---
+            let resourceType = 'auto';
+            if (isGif && file.size > 9.5 * 1024 * 1024) {
+                resourceType = 'video'; // إجبار الرفع كفيديو للـ GIF الكبير
+            } else if (type === 'video') {
+                resourceType = 'video';
+            }
+
+            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`);
 
             xhr.upload.onprogress = e => {
                 if (e.lengthComputable) {
@@ -1287,7 +1285,7 @@
             return 'doc';
         }
         function typeEmoji(t) {
-            return { image: '🖼️', gif: '🎞️', video: '🎬', doc: '📄' }[t] ?? '�️';
+            return { image: '🖼️', gif: '🎞️', video: '🎬', doc: '📄' }[t] ?? '️';
         }
         function formatSize(bytes) {
             return bytes > 1048576
