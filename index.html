@@ -871,13 +871,20 @@
                         <span id="quotaText" style="font-size: .8rem; font-weight: bold;">جاري التحميل...</span>
                     </div>
                 </div>
-                <div style="width: 120px; text-align: center;">
-                    <p style="font-size: .8rem; margin-bottom: 5px; color: var(--muted);">🖼️ البانر الحالي:</p>
-                    <a id="currentBannerLink" href="#" target="_blank" style="display: block;">
-                        <img id="currentBannerImg" src="" alt=""
-                            style="width: 100%; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--glass-bg); display: none;" />
+                <div id="bannerPreviewContainer" style="width: 120px; text-align: center; position: relative; min-height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <p style="font-size: .8rem; margin-bottom: 5px; color: var(--muted); position: absolute; top: -20px; right: 0; width: 100%;">🖼️ البانر الحالي:</p>
+                    <div id="bannerPlaceholder" style="font-size: .7rem; color: var(--muted); border: 1px dashed var(--glass-border); border-radius: 8px; width: 100%; height: 60px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2);">لا يوجد بانر</div>
+                    <a id="currentBannerLink" href="#" target="_blank" style="display: none; width: 100%;">
+                        <img id="currentBannerImg" src="" alt="" style="width: 100%; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--glass-bg);" />
                     </a>
                 </div>
+            </div>
+        </div>
+
+        <div class="glass" id="permanentLinks" style="padding: 20px; display: none;">
+            <h3 style="margin-bottom: 12px; font-size: 1.1rem;">🔗 روابط البانرات الثابتة:</h3>
+            <div id="linksContainer" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- مولدة بواسطة JS -->
             </div>
         </div>
 
@@ -996,19 +1003,36 @@
             const info = document.getElementById('accountInfo');
             if (info) info.classList.add('visible');
 
-            if (selectedAccount && selectedAccount.cloud_name && selectedAccount.cloud_name !== 'CLOUD_NAME_HERE') {
+            refreshCurrentBanner();
+            fetchQuota(selectedAccount);
+        }
+
+        function refreshCurrentBanner() {
+            const imgEl = document.getElementById('currentBannerImg');
+            const linkEl = document.getElementById('currentBannerLink');
+            const placeholder = document.getElementById('bannerPlaceholder');
+
+            if (selectedAccount && selectedAccount.cloud_name && selectedAccount.cloud_name !== 'CLOUD_NAME_HERE' && selectedAccount.cloud_name !== '') {
                 const imgUrl = `https://res.cloudinary.com/${selectedAccount.cloud_name}/image/upload/f_auto,q_auto/v1/${selectedAccount.public_id}?t=${Date.now()}`;
-                const imgEl = document.getElementById('currentBannerImg');
-                if (imgEl) {
-                    imgEl.src = imgUrl;
+                
+                imgEl.src = imgUrl;
+                imgEl.onload = () => {
                     imgEl.style.display = 'block';
-                    imgEl.onerror = () => { imgEl.style.display = 'none'; };
-                    document.getElementById('currentBannerLink').href = imgUrl;
-                }
-                fetchQuota(selectedAccount);
+                    linkEl.style.display = 'block';
+                    linkEl.href = imgUrl;
+                    placeholder.style.display = 'none';
+                };
+                imgEl.onerror = () => {
+                    imgEl.style.display = 'none';
+                    linkEl.style.display = 'none';
+                    placeholder.style.display = 'flex';
+                    placeholder.textContent = 'لا يوجد بانر';
+                };
             } else {
-                const imgEl = document.getElementById('currentBannerImg');
-                if (imgEl) imgEl.style.display = 'none';
+                imgEl.style.display = 'none';
+                linkEl.style.display = 'none';
+                placeholder.style.display = 'flex';
+                placeholder.textContent = 'بيانات ناقصة';
                 const txt = document.getElementById('quotaText');
                 if (txt) txt.textContent = 'يرجى وضع بيانات الحساب بالكود';
                 const bar = document.getElementById('quotaBar');
@@ -1016,7 +1040,36 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', initAccounts);
+        function refreshPermanentLinks() {
+            const container = document.getElementById('linksContainer');
+            const section = document.getElementById('permanentLinks');
+            let hasAnyData = false;
+            
+            container.innerHTML = '';
+            ACCOUNTS.forEach(acc => {
+                if (acc.cloud_name && acc.cloud_name !== 'CLOUD_NAME_HERE' && acc.cloud_name !== '') {
+                    hasAnyData = true;
+                    const url = `https://res.cloudinary.com/${acc.cloud_name}/image/upload/f_auto,q_auto/v1/${acc.public_id}`;
+                    const id = 'link_' + acc.id;
+                    container.innerHTML += `
+                        <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                            <span style="font-size: .8rem; font-weight: bold; width: 140px; color: var(--muted);">${acc.title}:</span>
+                            <div class="url-box" id="${id}" style="margin: 0;">${url}</div>
+                            <button class="copy-btn" onclick="copyUrl('${id}', this)" style="padding: 5px 10px;">نسخ</button>
+                        </div>
+                    `;
+                }
+            });
+            
+            if (hasAnyData) {
+                section.style.display = 'block';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAccounts();
+            refreshPermanentLinks();
+        });
 
         /* ─── Typed.js ─── */
         new Typed('#typed', {
@@ -1374,6 +1427,10 @@
               نسخ
             </button>
           </div>`;
+
+                    // تحديث الكوتا والبانر الحالي بعد الرفع الناجح
+                    fetchQuota(selectedAccount);
+                    setTimeout(refreshCurrentBanner, 1500); // تأخير بسيط لضمان تحديث الكاش في سيرفرات كلاودنري
                 } else {
                     const err = tryParse(xhr.responseText);
                     document.getElementById(id + '_st').className = 'card-status err';
