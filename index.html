@@ -12,10 +12,10 @@
     <script src="https://cdn.lordicon.com/lordicon.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
-
-
-
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- FFmpeg.wasm v0.12 (Single Thread) — NO SharedArrayBuffer needed -->
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 
 
     <style>
@@ -776,6 +776,54 @@
             font-size: .74rem;
             color: var(--muted);
         }
+
+        .account-selector {
+            padding: 20px;
+            margin-bottom: 5px;
+        }
+        .accounts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .account-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .account-option:hover {
+            background: rgba(255, 255, 255, .1);
+        }
+        .account-option.active {
+            background: rgba(99, 102, 241, .2);
+            border-color: var(--accent);
+        }
+        .account-option input[type="radio"] {
+            display: none;
+        }
+        .account-option-label {
+            font-size: .85rem;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+        }
+        .account-info {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--glass-border);
+            gap: 15px;
+        }
+        .account-info.visible {
+            display: flex;
+            animation: fadeUp .3s ease;
+        }
     </style>
 </head>
 
@@ -794,6 +842,31 @@
                 <span id="typed"></span>
             </p>
         </header>
+
+        <div class="account-selector glass">
+            <h3 style="margin-bottom: 12px; font-size: 1.1rem;">اختر الحساب المستهدف:</h3>
+            <div class="accounts-grid" id="accountsGrid">
+                <!-- مولدة بواسطة JS -->
+            </div>
+            
+            <div class="account-info" id="accountInfo">
+                <div style="flex: 1;">
+                    <p style="font-size: .9rem; margin-bottom: 5px; color: var(--muted);">📊 استهلاك المساحة (الكوتا):</p>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="flex: 1; height: 6px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden;">
+                            <div id="quotaBar" style="height: 100%; width: 0%; background: var(--green); transition: width 0.3s;"></div>
+                        </div>
+                        <span id="quotaText" style="font-size: .8rem; font-weight: bold;">جاري التحميل...</span>
+                    </div>
+                </div>
+                <div style="width: 120px; text-align: center;">
+                    <p style="font-size: .8rem; margin-bottom: 5px; color: var(--muted);">🖼️ البانر الحالي:</p>
+                    <a id="currentBannerLink" href="#" target="_blank" style="display: block;">
+                        <img id="currentBannerImg" src="" alt="" style="width: 100%; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--glass-bg); display: none;" />
+                    </a>
+                </div>
+            </div>
+        </div>
 
         <div class="dropzone glass" id="dropzone">
             <div class="drag-glow"></div>
@@ -845,9 +918,92 @@
     </footer>
 
     <script>
-        /* ─── CONFIG (hardcoded) ─── */
-        const CLOUD_NAME = 'du2knsck4';
-        const UPLOAD_PRESET = 'Upload';
+        /* ─── CONFIG (Multi-Accounts) ─── */
+        const ACCOUNTS = [
+            { id: 't1', title: 'بنر 1 مكتبة المعلمين', cloud_name: 'CLOUD_NAME_HERE', api_key: 'API_KEY_HERE', api_secret: 'API_SECRET_HERE', public_id: 'banner_image' },
+            { id: 't2', title: 'بنر 2 مكتبة المعلمين', cloud_name: '', api_key: '', api_secret: '', public_id: 'banner_image' },
+            { id: 't3', title: 'بنر 3 مكتبة المعلمين', cloud_name: '', api_key: '', api_secret: '', public_id: 'banner_image' },
+            { id: 's1', title: 'بنر 1 العلوم والتقنية', cloud_name: '', api_key: '', api_secret: '', public_id: 'banner_image' },
+            { id: 's2', title: 'بنر 2 العلوم والتقنية', cloud_name: '', api_key: '', api_secret: '', public_id: 'banner_image' },
+            { id: 's3', title: 'بنر 3 العلوم والتقنية', cloud_name: '', api_key: '', api_secret: '', public_id: 'banner_image' }
+        ];
+
+        let selectedAccount = null;
+
+        function initAccounts() {
+            const grid = document.getElementById('accountsGrid');
+            grid.innerHTML = '';
+            ACCOUNTS.forEach((acc, idx) => {
+                const isSelected = idx === 0;
+                grid.innerHTML += `
+                    <label class="account-option ${isSelected ? 'active' : ''}" id="lbl_${acc.id}">
+                        <input type="radio" name="account" value="${acc.id}" ${isSelected ? 'checked' : ''} onchange="selectAccount('${acc.id}')" />
+                        <span class="account-option-label">${acc.title}</span>
+                    </label>
+                `;
+            });
+            setTimeout(() => selectAccount(ACCOUNTS[0].id), 50);
+        }
+
+        async function fetchQuota(acc) {
+            const bar = document.getElementById('quotaBar');
+            const txt = document.getElementById('quotaText');
+            if(!acc.cloud_name || !acc.api_key || !acc.api_secret) {
+                txt.textContent = 'بيانات الحساب ناقصة بالكود';
+                bar.style.width = '0%';
+                return;
+            }
+            txt.textContent = 'جاري التحميل...';
+            try {
+                const auth = btoa(acc.api_key + ":" + acc.api_secret);
+                const url = `https://corsproxy.io/?https://api.cloudinary.com/v1_1/${acc.cloud_name}/usage`;
+                const res = await fetch(url, { headers: { 'Authorization': 'Basic ' + auth } });
+                const data = await res.json();
+                if(data.credits && data.credits.limit) {
+                    const usage = data.credits.usage;
+                    const limit = data.credits.limit;
+                    const percent = Math.min((usage / limit) * 100, 100).toFixed(1);
+                    txt.textContent = `${percent}% مستهلك (${Math.round(usage)} من ${limit})`;
+                    bar.style.width = percent + '%';
+                    bar.style.background = percent > 90 ? 'var(--red)' : (percent > 70 ? '#fbbf24' : 'var(--green)');
+                } else {
+                    txt.textContent = 'غير متاح';
+                }
+            } catch(e) {
+                txt.textContent = 'خطأ في جلب الكوتا';
+                bar.style.width = '0%';
+            }
+        }
+
+        function selectAccount(id) {
+            selectedAccount = ACCOUNTS.find(a => a.id === id);
+            document.querySelectorAll('.account-option').forEach(el => el.classList.remove('active'));
+            document.getElementById('lbl_' + id).classList.add('active');
+            
+            const info = document.getElementById('accountInfo');
+            if(info) info.classList.add('visible');
+            
+            if(selectedAccount && selectedAccount.cloud_name && selectedAccount.cloud_name !== 'CLOUD_NAME_HERE') {
+                const imgUrl = `https://res.cloudinary.com/${selectedAccount.cloud_name}/image/upload/f_auto,q_auto/v1/${selectedAccount.public_id}?t=${Date.now()}`;
+                const imgEl = document.getElementById('currentBannerImg');
+                if(imgEl) {
+                    imgEl.src = imgUrl;
+                    imgEl.style.display = 'block';
+                    imgEl.onerror = () => { imgEl.style.display = 'none'; };
+                    document.getElementById('currentBannerLink').href = imgUrl;
+                }
+                fetchQuota(selectedAccount);
+            } else {
+                const imgEl = document.getElementById('currentBannerImg');
+                if(imgEl) imgEl.style.display = 'none';
+                const txt = document.getElementById('quotaText');
+                if(txt) txt.textContent = 'يرجى وضع بيانات الحساب بالكود';
+                const bar = document.getElementById('quotaBar');
+                if(bar) bar.style.width = '0%';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initAccounts);
 
         /* ─── Typed.js ─── */
         new Typed('#typed', {
@@ -1011,6 +1167,32 @@
             });
         }
 
+        /* --- FFmpeg GIF to MP4 (Single-Thread, No SharedArrayBuffer) --- */
+        let ffmpegInstance = null;
+        async function convertGifToMp4(file) {
+            const { FFmpeg } = window.FFmpegWASM;
+            const { fetchFile, toBlobURL } = window.FFmpegUtil;
+
+            if (!ffmpegInstance) {
+                ffmpegInstance = new FFmpeg();
+                ffmpegInstance.on('log', ({ message }) => console.log(message));
+
+                const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+                await ffmpegInstance.load({
+                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                });
+            }
+
+            await ffmpegInstance.writeFile('input.gif', await fetchFile(file));
+            await ffmpegInstance.exec(['-threads', '1', '-i', 'input.gif', '-movflags', 'faststart', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', 'output.mp4']);
+            const data = await ffmpegInstance.readFile('output.mp4');
+
+            const mp4File = new File([data.buffer], file.name.replace(/\.gif$/i, '.mp4'), { type: 'video/mp4' });
+            await ffmpegInstance.deleteFile('input.gif');
+            await ffmpegInstance.deleteFile('output.mp4');
+            return mp4File;
+        }
 
         /* ─── Upload ─── */
         async function uploadFile(file) {
@@ -1049,12 +1231,36 @@
                 stEl.remove();
             }
 
-            // For large GIFs (>10MB): upload directly as video resource on Cloudinary
-            // Cloudinary's /video/upload accepts GIFs natively with no size conversion needed
-            let uploadEndpoint = 'auto';
+            // Convert Huge GIFs to MP4 natively using FFmpeg v0.12 (Single-Thread)
             if (isGif && file.size > 10 * 1024 * 1024) {
-                uploadEndpoint = 'video';
+                const stEl = document.createElement('div');
+                stEl.className = 'compress-overlay';
+                stEl.innerHTML = `
+                    <div class="compress-spinner"></div>
+                    <div class="compress-overlay-text">
+                        <div class="compress-overlay-title">
+                            🎞️ جاري تحويل الـ GIF لفيديو…
+                        </div>
+                        <div class="compress-overlay-sub">
+                            يتم المعالجة لكي يقبل السيرفر الملفات الضخمة
+                        </div>
+                    </div>`;
+                document.getElementById('results').prepend(stEl);
+                try {
+                    file = await convertGifToMp4(file);
+                    type = 'video';
+                    isImg = false;
+                    isGif = false;
+                } catch (e) {
+                    console.error("FFmpeg conversion failed", e);
+                }
+                stEl.remove();
             }
+
+            // Upload all files via Cloudinary's 'auto' endpoint. 
+
+            // It correctly negotiates whether the file should be treated as image or video automatically. 
+            let uploadEndpoint = 'auto';
 
             const thumbHTML = isImg
                 ? `<div class="thumb"><img id="${id}_thumb" src="${URL.createObjectURL(file)}" alt="" /></div>`
@@ -1095,16 +1301,34 @@
                 return;
             }
 
+            if (!selectedAccount || !selectedAccount.cloud_name || !selectedAccount.api_secret || selectedAccount.cloud_name === 'CLOUD_NAME_HERE') {
+                document.getElementById(id + '_st').className = 'card-status err';
+                document.getElementById(id + '_st').textContent = '❌ يرجى إدخال بيانات الحساب (مفاتيح API) بداخل الكود للرفع والاستبدال!';
+                document.getElementById(id + '_bar').style.background = 'var(--red)';
+                document.getElementById(id + '_bar').style.width = '100%';
+                return;
+            }
+
+            /* Signature */
+            const timestamp = Math.floor(Date.now() / 1000);
+            const strToSign = `invalidate=true&overwrite=true&public_id=${selectedAccount.public_id}&timestamp=${timestamp}${selectedAccount.api_secret}`;
+            const signature = CryptoJS.SHA1(strToSign).toString();
+
             /* XHR */
             const fd = new FormData();
             fd.append('file', file);
-            fd.append('upload_preset', UPLOAD_PRESET);
+            fd.append('api_key', selectedAccount.api_key);
+            fd.append('timestamp', timestamp);
+            fd.append('signature', signature);
+            fd.append('public_id', selectedAccount.public_id);
+            fd.append('overwrite', 'true');
+            fd.append('invalidate', 'true');
 
             const xhr = new XMLHttpRequest();
 
             // Cloudinary's uploadEndpoint is dynamically set to 'video' for large GIFs
             // This naturally supports huge GIFs natively without any conversion
-            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${uploadEndpoint}/upload`);
+            xhr.open('POST', `https://api.cloudinary.com/v1_1/${selectedAccount.cloud_name}/${uploadEndpoint}/upload`);
 
             xhr.upload.onprogress = e => {
                 if (e.lengthComputable) {
