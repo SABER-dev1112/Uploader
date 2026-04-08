@@ -781,11 +781,13 @@
             padding: 20px;
             margin-bottom: 5px;
         }
+
         .accounts-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             gap: 10px;
         }
+
         .account-option {
             display: flex;
             align-items: center;
@@ -797,22 +799,27 @@
             cursor: pointer;
             transition: all 0.2s;
         }
+
         .account-option:hover {
             background: rgba(255, 255, 255, .1);
         }
+
         .account-option.active {
             background: rgba(99, 102, 241, .2);
             border-color: var(--accent);
         }
+
         .account-option input[type="radio"] {
             display: none;
         }
+
         .account-option-label {
             font-size: .85rem;
             font-weight: 700;
             cursor: pointer;
             width: 100%;
         }
+
         .account-info {
             display: none;
             margin-top: 15px;
@@ -820,6 +827,7 @@
             border-top: 1px solid var(--glass-border);
             gap: 15px;
         }
+
         .account-info.visible {
             display: flex;
             animation: fadeUp .3s ease;
@@ -848,13 +856,17 @@
             <div class="accounts-grid" id="accountsGrid">
                 <!-- مولدة بواسطة JS -->
             </div>
-            
+
             <div class="account-info" id="accountInfo">
                 <div style="flex: 1;">
-                    <p style="font-size: .9rem; margin-bottom: 5px; color: var(--muted);">📊 استهلاك المساحة (الكوتا):</p>
+                    <p style="font-size: .9rem; margin-bottom: 5px; color: var(--muted);">📊 استهلاك المساحة (الكوتا):
+                    </p>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="flex: 1; height: 6px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden;">
-                            <div id="quotaBar" style="height: 100%; width: 0%; background: var(--green); transition: width 0.3s;"></div>
+                        <div
+                            style="flex: 1; height: 6px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden;">
+                            <div id="quotaBar"
+                                style="height: 100%; width: 0%; background: var(--green); transition: width 0.3s;">
+                            </div>
                         </div>
                         <span id="quotaText" style="font-size: .8rem; font-weight: bold;">جاري التحميل...</span>
                     </div>
@@ -862,7 +874,8 @@
                 <div style="width: 120px; text-align: center;">
                     <p style="font-size: .8rem; margin-bottom: 5px; color: var(--muted);">🖼️ البانر الحالي:</p>
                     <a id="currentBannerLink" href="#" target="_blank" style="display: block;">
-                        <img id="currentBannerImg" src="" alt="" style="width: 100%; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--glass-bg); display: none;" />
+                        <img id="currentBannerImg" src="" alt=""
+                            style="width: 100%; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--glass-bg); display: none;" />
                     </a>
                 </div>
             </div>
@@ -920,7 +933,7 @@
     <script>
         /* ─── CONFIG (Multi-Accounts) ─── */
         const ACCOUNTS = [
-            { id: 't1', title: 'بنر 1 مكتبة المعلمين', cloud_name: 'CLOUD_NAME_HERE', api_key: 'API_KEY_HERE', api_secret: 'API_SECRET_HERE', public_id: 'banner_image' },
+            { id: 't1', title: 'بنر 1 مكتبة المعلمين', cloud_name: 'debpwch1v', api_key: '488782326538325', api_secret: 'ux9WfiMitHO3N9R_1mQ8jGDpAI4', public_id: 'banner_image' },
             { id: 't2', title: 'بنر 2 مكتبة المعلمين', cloud_name: '', api_key: '', api_secret: '', public_id: 'banner_image' },
             { id: 't3', title: 'بنر 3 مكتبة المعلمين', cloud_name: '', api_key: '', api_secret: '', public_id: 'banner_image' },
             { id: 's1', title: 'بنر 1 العلوم والتقنية', cloud_name: '', api_key: '', api_secret: '', public_id: 'banner_image' },
@@ -948,7 +961,7 @@
         async function fetchQuota(acc) {
             const bar = document.getElementById('quotaBar');
             const txt = document.getElementById('quotaText');
-            if(!acc.cloud_name || !acc.api_key || !acc.api_secret) {
+            if (!acc.cloud_name || !acc.api_key || !acc.api_secret) {
                 txt.textContent = 'بيانات الحساب ناقصة بالكود';
                 bar.style.width = '0%';
                 return;
@@ -959,7 +972,7 @@
                 const url = `https://corsproxy.io/?https://api.cloudinary.com/v1_1/${acc.cloud_name}/usage`;
                 const res = await fetch(url, { headers: { 'Authorization': 'Basic ' + auth } });
                 const data = await res.json();
-                if(data.credits && data.credits.limit) {
+                if (data.credits && data.credits.limit) {
                     const usage = data.credits.usage;
                     const limit = data.credits.limit;
                     const percent = Math.min((usage / limit) * 100, 100).toFixed(1);
@@ -969,7 +982,7 @@
                 } else {
                     txt.textContent = 'غير متاح';
                 }
-            } catch(e) {
+            } catch (e) {
                 txt.textContent = 'خطأ في جلب الكوتا';
                 bar.style.width = '0%';
             }
@@ -979,14 +992,14 @@
             selectedAccount = ACCOUNTS.find(a => a.id === id);
             document.querySelectorAll('.account-option').forEach(el => el.classList.remove('active'));
             document.getElementById('lbl_' + id).classList.add('active');
-            
+
             const info = document.getElementById('accountInfo');
-            if(info) info.classList.add('visible');
-            
-            if(selectedAccount && selectedAccount.cloud_name && selectedAccount.cloud_name !== 'CLOUD_NAME_HERE') {
+            if (info) info.classList.add('visible');
+
+            if (selectedAccount && selectedAccount.cloud_name && selectedAccount.cloud_name !== 'CLOUD_NAME_HERE') {
                 const imgUrl = `https://res.cloudinary.com/${selectedAccount.cloud_name}/image/upload/f_auto,q_auto/v1/${selectedAccount.public_id}?t=${Date.now()}`;
                 const imgEl = document.getElementById('currentBannerImg');
-                if(imgEl) {
+                if (imgEl) {
                     imgEl.src = imgUrl;
                     imgEl.style.display = 'block';
                     imgEl.onerror = () => { imgEl.style.display = 'none'; };
@@ -995,11 +1008,11 @@
                 fetchQuota(selectedAccount);
             } else {
                 const imgEl = document.getElementById('currentBannerImg');
-                if(imgEl) imgEl.style.display = 'none';
+                if (imgEl) imgEl.style.display = 'none';
                 const txt = document.getElementById('quotaText');
-                if(txt) txt.textContent = 'يرجى وضع بيانات الحساب بالكود';
+                if (txt) txt.textContent = 'يرجى وضع بيانات الحساب بالكود';
                 const bar = document.getElementById('quotaBar');
-                if(bar) bar.style.width = '0%';
+                if (bar) bar.style.width = '0%';
             }
         }
 
