@@ -956,6 +956,19 @@
 
         let selectedAccount = null;
 
+        function getAccountVersion(accId) {
+            const stored = localStorage.getItem('ver_' + accId);
+            if (stored) {
+                return parseInt(stored, 10);
+            }
+            return 1;
+        }
+
+        function incrementAccountVersion(accId) {
+            const current = getAccountVersion(accId);
+            localStorage.setItem('ver_' + accId, current + 1);
+        }
+
         function initAccounts() {
             const grid = document.getElementById('accountsGrid');
             grid.innerHTML = '';
@@ -1019,7 +1032,8 @@
             const placeholder = document.getElementById('bannerPlaceholder');
 
             if (selectedAccount && selectedAccount.cloud_name && selectedAccount.cloud_name !== 'CLOUD_NAME_HERE' && selectedAccount.cloud_name !== '') {
-                const imgUrl = `https://res.cloudinary.com/${selectedAccount.cloud_name}/image/upload/f_auto,q_auto/v1/${selectedAccount.public_id}?t=${Date.now()}`;
+                const version = getAccountVersion(selectedAccount.id);
+                const imgUrl = `https://res.cloudinary.com/${selectedAccount.cloud_name}/image/upload/f_auto,q_auto/v${version}/${selectedAccount.public_id}?t=${Date.now()}`;
 
                 imgEl.src = imgUrl;
                 imgEl.onload = () => {
@@ -1055,11 +1069,12 @@
             ACCOUNTS.forEach(acc => {
                 if (acc.cloud_name && acc.cloud_name !== 'CLOUD_NAME_HERE' && acc.cloud_name !== '') {
                     hasAnyData = true;
-                    const url = `https://res.cloudinary.com/${acc.cloud_name}/image/upload/f_auto,q_auto/v1/${acc.public_id}`;
+                    const version = getAccountVersion(acc.id);
+                    const url = `https://res.cloudinary.com/${acc.cloud_name}/image/upload/f_auto,q_auto/v${version}/${acc.public_id}`;
                     const id = 'link_' + acc.id;
                     container.innerHTML += `
                         <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--glass-border);">
-                            <span style="font-size: .8rem; font-weight: bold; width: 140px; color: var(--muted);">${acc.title}:</span>
+                            <span style="font-size: .8rem; font-weight: bold; width: 140px; color: var(--muted);">${acc.title} (V${version}):</span>
                             <div class="url-box" id="${id}" style="margin: 0;">${url}</div>
                             <button class="copy-btn" onclick="copyUrl('${id}', this)" style="padding: 5px 10px;">نسخ</button>
                         </div>
@@ -1462,6 +1477,8 @@
           </div>`;
 
                     // تحديث الكوتا والبانر الحالي بعد الرفع الناجح
+                    incrementAccountVersion(selectedAccount.id);
+                    refreshPermanentLinks();
                     fetchQuota(selectedAccount);
                     setTimeout(refreshCurrentBanner, 1500); // تأخير بسيط لضمان تحديث الكاش في سيرفرات كلاودنري
                 } else {
