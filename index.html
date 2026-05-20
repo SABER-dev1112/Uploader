@@ -1151,7 +1151,7 @@
             const gifTip = isGif
                 ? `<div style="margin-top:6px;font-size:.72rem;background:rgba(34,197,94,.12);
                     border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:5px 9px;color:#86efac;line-height:1.4">
-                    💡 ميزة: الـ GIF الأكبر من 10MB سيتم رفعه كـ Video تلقائياً لتخطي قيود الحجم والحفاظ على الجودة الأصلية!
+                    💡 ميزة: الـ GIF الأكبر من 10MB سيتم ضغطه تلقائياً لتخطي قيود الحجم مع الحفاظ على الرابط القديم ثابتاً!
                    </div>`
                 : '';
 
@@ -1239,9 +1239,9 @@
             });
         }
 
-        /* --- FFmpeg GIF to MP4 (Single-Thread, No SharedArrayBuffer) --- */
+        /* --- FFmpeg GIF Compression (Single-Thread, No SharedArrayBuffer) --- */
         let ffmpegInstance = null;
-        async function convertGifToMp4(file) {
+        async function compressGif(file) {
             const { FFmpeg } = window.FFmpegWASM;
             const { fetchFile, toBlobURL } = window.FFmpegUtil;
 
@@ -1257,13 +1257,41 @@
             }
 
             await ffmpegInstance.writeFile('input.gif', await fetchFile(file));
-            await ffmpegInstance.exec(['-threads', '1', '-i', 'input.gif', '-movflags', 'faststart', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', 'output.mp4']);
-            const data = await ffmpegInstance.readFile('output.mp4');
 
-            const mp4File = new File([data.buffer], file.name.replace(/\.gif$/i, '.mp4'), { type: 'video/mp4' });
+            // Dynamic compression parameters based on file size to guarantee it goes under 10MB
+            let fps = 12;
+            let width = 800;
+            let colors = 128;
+
+            if (file.size > 30 * 1024 * 1024) { // > 30MB
+                fps = 8;
+                width = 480;
+                colors = 64;
+            } else if (file.size > 20 * 1024 * 1024) { // 20MB - 30MB
+                fps = 10;
+                width = 600;
+                colors = 96;
+            } else if (file.size > 10 * 1024 * 1024) { // 10MB - 20MB
+                fps = 12;
+                width = 720;
+                colors = 128;
+            }
+
+            const vfFilter = `fps=${fps},scale=${width}:-2:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${colors}[p];[s1][p]paletteuse=dither=bayer`;
+
+            await ffmpegInstance.exec([
+                '-threads', '1',
+                '-i', 'input.gif',
+                '-vf', vfFilter,
+                'output.gif'
+            ]);
+
+            const data = await ffmpegInstance.readFile('output.gif');
+            const compressedFile = new File([data.buffer], file.name, { type: 'image/gif' });
+
             await ffmpegInstance.deleteFile('input.gif');
-            await ffmpegInstance.deleteFile('output.mp4');
-            return mp4File;
+            await ffmpegInstance.deleteFile('output.gif');
+            return compressedFile;
         }
 
         /* ─── Upload ─── */
@@ -1276,8 +1304,8 @@
 
             // --- فصل الحجم الأقصى للرفع عن حجم أداة الضغط ---
             const COMPRESS_TARGET = 10 * 1024 * 1024; // 10 ميجا هدف لضغط الملفات
-            // الحد الأقصى للرفع: 100 ميجا للفيديو والـ GIF، و 10 ميجا للصور العادية
-            const UPLOAD_LIMIT = (type === 'video' || isGif) ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+            // الحد الأقصى للرفع: 100 ميجا للفيديو، و 10 ميجا للصور والـ GIF (لتظل كـ Image على Cloudinary ويحفظ الرابط)
+            const UPLOAD_LIMIT = (type === 'video') ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
 
             const doCompress = document.getElementById('compressToggle').checked;
             // SVG=vector (skip), WebP=Canvas result often bigger (skip)
@@ -1303,7 +1331,7 @@
                 stEl.remove();
             }
 
-            // Convert Huge GIFs to MP4 natively using FFmpeg v0.12 (Single-Thread)
+            // Compress Huge GIFs using FFmpeg to keep them under 10MB limit and maintain the image URL
             if (isGif && file.size > 10 * 1024 * 1024) {
                 const stEl = document.createElement('div');
                 stEl.className = 'compress-overlay';
@@ -1311,30 +1339,29 @@
                     <div class="compress-spinner"></div>
                     <div class="compress-overlay-text">
                         <div class="compress-overlay-title">
-                            🎞️ جاري تحويل الـ GIF لفيديو…
+                            🗜️ جاري ضغط الـ GIF…
                         </div>
                         <div class="compress-overlay-sub">
-                            يتم المعالجة لكي يقبل السيرفر الملفات الضخمة
+                            يتم المعالجة لتقليل الحجم تحت 10 ميجا للحفاظ على الرابط القديم
                         </div>
                     </div>`;
                 document.getElementById('results').prepend(stEl);
                 try {
-                    file = await convertGifToMp4(file);
-                    type = 'video';
-                    isImg = false;
-                    isGif = false;
+                    file = await compressGif(file);
                 } catch (e) {
-                    console.error("FFmpeg conversion failed", e);
+                    console.error("FFmpeg GIF compression failed", e);
                 }
                 stEl.remove();
             }
 
-            // Upload all files via Cloudinary's 'auto' endpoint. 
-
-            // It correctly negotiates whether the file should be treated as image or video automatically. 
+            // Upload all files via Cloudinary's endpoints. For images and GIFs, force 'image' endpoint
+            // to ensure they are always uploaded to /image/upload namespace and keep existing links intact.
             let uploadEndpoint = 'auto';
+            if (isImg || isGif) {
+                uploadEndpoint = 'image';
+            }
 
-            const thumbHTML = isImg
+            const thumbHTML = isImg || isGif
                 ? `<div class="thumb"><img id="${id}_thumb" src="${URL.createObjectURL(file)}" alt="" /></div>`
                 : `<div class="thumb">${typeEmoji(type)}</div>`;
 
@@ -1353,7 +1380,7 @@
             <div class="spinner-mini"></div>
             جاري الرفع…
           </div>
-          ${canCompress && doCompress && file.size < originalSize
+          ${file.size < originalSize
                     ? `<span class="compress-savings">🗜️ ضُغطت: ${formatSize(originalSize)} ← ${formatSize(file.size)}</span>`
                     : ''}
         </div>
