@@ -940,7 +940,7 @@
     <footer>
         <p class="footer-main">Cloudinary Uploader — f_auto · q_auto · auto format &amp; quality</p>
         <span class="footer-credit">Developed by Mahmoud Walid</span>
-        <span class="footer-version">V 2.1</span>
+        <span class="footer-version" id="footerVersion">V 2.1</span>
     </footer>
 
     <script>
@@ -967,6 +967,37 @@
         function incrementAccountVersion(accId) {
             const current = getAccountVersion(accId);
             localStorage.setItem('ver_' + accId, current + 1);
+        }
+
+        function getSiteVersion() {
+            const stored = localStorage.getItem('site_version');
+            if (stored) {
+                return stored;
+            }
+            return '2.1';
+        }
+
+        function incrementSiteVersion() {
+            const current = getSiteVersion();
+            const parts = current.split('.');
+            let nextVer;
+            if (parts.length >= 2) {
+                let major = parseInt(parts[0], 10);
+                let minor = parseInt(parts[1], 10);
+                minor += 1;
+                nextVer = `${major}.${minor}`;
+            } else {
+                nextVer = (parseFloat(current) + 0.1).toFixed(1);
+            }
+            localStorage.setItem('site_version', nextVer);
+            return nextVer;
+        }
+
+        function updateFooterVersionUI() {
+            const el = document.getElementById('footerVersion');
+            if (el) {
+                el.textContent = 'V ' + getSiteVersion();
+            }
         }
 
         function initAccounts() {
@@ -1090,6 +1121,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             initAccounts();
             refreshPermanentLinks();
+            updateFooterVersionUI();
         });
 
         /* ─── Typed.js ─── */
@@ -1478,6 +1510,8 @@
 
                     // تحديث الكوتا والبانر الحالي بعد الرفع الناجح
                     incrementAccountVersion(selectedAccount.id);
+                    incrementSiteVersion();
+                    updateFooterVersionUI();
                     refreshPermanentLinks();
                     fetchQuota(selectedAccount);
                     setTimeout(refreshCurrentBanner, 1500); // تأخير بسيط لضمان تحديث الكاش في سيرفرات كلاودنري
